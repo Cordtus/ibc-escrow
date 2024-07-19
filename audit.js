@@ -1,63 +1,31 @@
 const fs = require('fs').promises;
 const path = require('path');
+const readline = require('readline');
+
 const axios = require('axios');
+const dotenv = require('dotenv');
 
-const CACHE_DIR = path.join(__dirname, 'chain_cache');
-const REPO_OWNER = 'cosmos';
-const REPO_NAME = 'chain-registry';
-const GITHUB_API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents`;
+const updateChainData = require('./updateChains');
+const config = require('./config.json');
 
-async function ensureCacheDirectory() {
-  try {
-    await fs.mkdir(CACHE_DIR, { recursive: true });
-  } catch (error) {
-    console.error('Error creating cache directory:', error);
-  }
-}
+dotenv.config();
 
-async function fetchDirectories() {
-  try {
-    const response = await axios.get(GITHUB_API_URL);
-    return response.data
-      .filter(item => item.type === 'dir' && /^[0-9a-f]/.test(item.name) && item.name !== 'testnets')
-      .map(item => item.name);
-  } catch (error) {
-    console.error('Error fetching directories:', error);
-    return [];
-  }
-}
+const DATA_DIR = path.join(__dirname, 'data');
 
-async function fetchChainJson(chainName) {
-  const url = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/master/${chainName}/chain.json`;
-  try {
-    const response = await axios.get(url);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching chain.json for ${chainName}:`, error);
-    return null;
-  }
-}
+async function promptUser(question) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
 
-async function cacheChainData() {
-  await ensureCacheDirectory();
-  const directories = await fetchDirectories();
-
-  for (const chainName of directories) {
-    const chainData = await fetchChainJson(chainName);
-    if (chainData) {
-      const filePath = path.join(CACHE_DIR, `${chainName}.json`);
-      try {
-        await fs.writeFile(filePath, JSON.stringify(chainData, null, 2));
-        console.log(`Cached ${chainName}.json`);
-      } catch (error) {
-        console.error(`Error writing ${chainName}.json:`, error);
-      }
-    }
-  }
+  return new Promise(resolve => rl.question(question, ans => {
+    rl.close();
+    resolve(ans);
+  }));
 }
 
 async function loadChainInfo(chainName) {
-  const filePath = path.join(CACHE_DIR, `${chainName}.json`);
+  const filePath = path.join(DATA_DIR, `${chainName}.json`);
   try {
     const data = await fs.readFile(filePath, 'utf8');
     return JSON.parse(data);
@@ -79,15 +47,7 @@ async function makeRequest(endpoints, path) {
   throw new Error('All endpoints failed');
 }
 
-async function performIBCEscrowAudit(sourceChainName, targetChainName, channelId) {
-  const sourceChainInfo = await loadChainInfo(sourceChainName);
-  const targetChainInfo = await loadChainInfo(targetChainName);
-
-  if (!sourceChainInfo || !targetChainInfo) {
-    console.error('Failed to load chain information');
-    return;
-  }
-
+async function performIBCEscrowAudit(sourceChainInfo, targetChainInfo, channelId) {
   const sourceRestEndpoints = sourceChainInfo.apis.rest.map(api => api.address);
   const targetRestEndpoints = targetChainInfo.apis.rest.map(api => api.address);
 
@@ -129,20 +89,69 @@ async function performIBCEscrowAudit(sourceChainName, targetChainName, channelId
   }
 }
 
-// Main execution
 async function main() {
-  await cacheChainData();
+  try {
+    // Check if chain data exists and update if necessary
+    try {
+      await fs.access(path.join(DATA_DIR, 'update_complete'));
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        console.log("Initializing chain data. This may take a few minutes...");
+        await updateChainData();
+      } else {
+        throw error;
+      }
+    }
 
-  const sourceChainName = process.argv[2];
-  const targetChainName = process.argv[3];
-  const channelId = process.argv[4];
+    let sourceChainName = process.argv[2];
+    let targetChainName = process.argv[3];
+    let channelId = process.argv[4];
 
-  if (!sourceChainName || !targetChainName || !channelId) {
-    console.log('Usage: node script.js <sourceChainName> <targetChainName> <channelId>');
+    // If no arguments provided, enter interactive mode
+    if (!sourceChainName || !targetChainName || !channelId) {
+      console.log('Enter the following information:');
+      sourceChainName = await promptUser('Source Chain Name: ');
+      targetChainName = await promptUser('Target Chain Name: ');
+      channelId = await promptUser('Channel ID: ');
+    }
+
+    let sourceChainInfo = await loadChainInfo(sourceChainName);
+    let targetChainInfo = await loadChainInfo(targetChainName);
+
+    if (!sourceChainInfo || !targetChainInfo) {
+      const missingChain = !sourceChainInfo ? sourceChainName : targetChainName;
+      console.log(`Chain information for ${missingChain} not found.`);
+      const answer = await promptUser('Would you like to update the chain data? (Y/n) ');
+
+      if (answer.toLowerCase() !== 'n') {
+        console.log("Updating chain data. This may take a few minutes...");
+        await updateChainData();
+        // Try loading the chain info again
+        if (!sourceChainInfo) sourceChainInfo = await loadChainInfo(sourceChainName);
+        if (!targetChainInfo) targetChainInfo = await loadChainInfo(targetChainName);
+      }
+
+      if (!sourceChainInfo || !targetChainInfo) {
+        throw new Error(`Failed to load information for ${!sourceChainInfo ? sourceChainName : targetChainName}`);
+      }
+    }
+
+    console.log(`Performing IBC escrow audit for ${sourceChainName} -> ${targetChainName} on channel ${channelId}`);
+    await performIBCEscrowAudit(sourceChainInfo, targetChainInfo, channelId);
+    console.log("Audit completed successfully.");
+
+  } catch (error) {
+    console.error('Error:', error.message);
     process.exit(1);
   }
-
-  await performIBCEscrowAudit(sourceChainName, targetChainName, channelId);
 }
 
-main().catch(error => console.error('An error occurred:', error));
+// Wrap the main function in a self-executing async function
+(async () => {
+  try {
+    await main();
+  } catch (error) {
+    console.error('An unexpected error occurred:', error);
+    process.exit(1);
+  }
+})();

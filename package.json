@@ -1,10 +1,32 @@
 {
-  "name": "ibc_escrow",
+  "name": "ibc-escrow-audit",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "A tool for auditing IBC escrow accounts between Cosmos chains",
+  "main": "audit.js",
+  "scripts": {
+    "start": "node audit.js",
+    "update-chains": "node updateChains.js",
+    "update-chains-force": "node updateChains.js --force"
+  },
+  "author": "Your Name",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.7.2",
-    "prompt-sync": "^4.2.0"
-  }
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/ibc-escrow-audit.git"
+  },
+  "keywords": [
+    "cosmos",
+    "ibc",
+    "escrow",
+    "audit",
+    "blockchain",
+    "chain-registry"
+  ]
 }
