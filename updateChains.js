@@ -1,4 +1,3 @@
-// updateChains.js
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
@@ -7,6 +6,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const DATA_DIR = path.join(__dirname, 'data');
+const IBC_DATA_DIR = path.join(DATA_DIR, 'ibc');
 const CONFIG = require('./config.json');
 
 const axiosInstance = axios.create({
@@ -16,15 +16,9 @@ const axiosInstance = axios.create({
   }
 });
 
-async function ensureDataDirectory() {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-  } catch (error) {
-    if (error.code !== 'EEXIST') {
-      console.error('Error creating data directory:', error);
-      throw error;
-    }
-  }
+async function ensureDirectories() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(IBC_DATA_DIR, { recursive: true });
 }
 
 async function getLastCommitDate(filePath) {
@@ -42,8 +36,27 @@ async function getLastCommitDate(filePath) {
   }
 }
 
+async function fetchIBCData() {
+  try {
+    const ibcDir = await axiosInstance.get(`https://api.github.com/repos/${CONFIG.github.owner}/${CONFIG.github.repo}/contents/_IBC`);
+    
+    for (const item of ibcDir.data) {
+      if (item.type === 'file' && item.name.endsWith('.json')) {
+        const fileContent = await axiosInstance.get(item.download_url);
+        const [chain1, chain2] = item.name.replace('.json', '').split('-').sort();
+        const fileName = `${chain1}-${chain2}.json`;
+        await fs.writeFile(path.join(IBC_DATA_DIR, fileName), JSON.stringify(fileContent.data, null, 2));
+        console.log(`IBC data for ${fileName} updated successfully.`);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching IBC data:', error.message);
+    throw error;
+  }
+}
+
 async function updateChainData(forceUpdate = false) {
-  await ensureDataDirectory();
+  await ensureDirectories();
 
   try {
     const dirs = await axiosInstance.get(`https://api.github.com/repos/${CONFIG.github.owner}/${CONFIG.github.repo}/contents`);
@@ -91,10 +104,14 @@ async function updateChainData(forceUpdate = false) {
         await new Promise(resolve => setTimeout(resolve, CONFIG.api.delay));
       }
     }
+
+    // Fetch and update IBC data
+    await fetchIBCData();
+
     await fs.writeFile(path.join(DATA_DIR, 'update_complete'), new Date().toISOString());
-    console.log('Chain data update completed.');
+    console.log('Chain and IBC data update completed.');
   } catch (error) {
-    console.error('Error fetching repository contents:', error.message);
+    console.error('Error updating data:', error.message);
     throw error;
   }
 }

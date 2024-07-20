@@ -1,6 +1,14 @@
 # IBC Escrow Audit Tool
 
-This tool performs an IBC escrow audit between two Cosmos chains.
+This tool performs an IBC escrow audit between two Cosmos chains, verifying the balances of IBC tokens in escrow accounts.
+
+## Features
+
+- Automatic fetching and caching of chain data from the Cosmos Chain Registry
+- IBC data validation against live chain data
+- Escrow balance auditing for IBC tokens
+- Detailed logging for easy troubleshooting and monitoring
+- Support for interactive and command-line modes
 
 ## Prerequisites
 
@@ -40,48 +48,47 @@ Run the script with one of the following commands:
 
 2. Command-line mode:
    ```
-   yarn start <sourceChainName> <targetChainName> <channelId>
+   yarn start <primaryChainName> <secondaryChainName>
    ```
-   - `<sourceChainName>`: The name of the source chain
-   - `<targetChainName>`: The name of the target chain
-   - `<channelId>`: The IBC channel ID to audit
+   - `<primaryChainName>`: The name of the primary chain
+   - `<secondaryChainName>`: The name of the secondary chain
 
    Example:
    ```
-   yarn start osmosis cosmos channel-0
+   yarn start osmosis cosmos
    ```
+
+The tool will automatically fetch the necessary IBC data and perform the audit.
 
 ## First Run
 
-On the first run, the script will cache chain data from the Cosmos Chain Registry. This process may take a few minutes. The data will be stored in a `data` directory for future use.
+On the first run, the script will cache chain data and IBC data from the Cosmos Chain Registry. This process may take a few minutes. The data will be stored in a `data` directory for future use.
 
 ## Updating Chain Data
 
-The tool caches chain data locally to improve performance and reduce API calls. There are several ways to update this data:
+The tool caches chain and IBC data locally to improve performance and reduce API calls. There are several ways to update this data:
 
 1. Automatic update when data is missing:
-   If you try to audit a chain that doesn't have local data, you'll be prompted to update the chain data.
+   If you try to audit chains that don't have local data, you'll be prompted to update the data.
 
 2. Manual update:
-   You can manually update the chain data by running:
+   You can manually update the chain and IBC data by running:
    ```
    yarn update-chains
    ```
-   This will check for updates to all chains and only download data for chains that have been updated since your last download.
+   This will check for updates to all chains and IBC data, and only download data that has been updated since your last download.
 
 3. Forced update:
-   To force an update of all chains regardless of their last update time, run:
+   To force an update of all chain and IBC data regardless of their last update time, run:
    ```
    yarn update-chains-force
    ```
 
-### Understanding Update Messages
+## Logging
 
-- "X is up to date.": The local data for chain X is already the latest version.
-- "Updating X...": The script is downloading new data for chain X.
-- "X updated successfully.": New data for chain X has been downloaded and saved.
-- "Warning: X/chain.json not found. Skipping this chain.": The chain.json file for X doesn't exist in the repository. This chain will be skipped.
-- "Error updating X: [error message]": An error occurred while trying to update chain X. The error message will provide more details.
+The tool uses Winston for logging. Logs are written to the console and to log files in the `logs` directory:
+- `error.log`: Contains only error messages
+- `combined.log`: Contains all log messages (info, warn, error)
 
 ## Troubleshooting
 
@@ -89,6 +96,11 @@ The tool caches chain data locally to improve performance and reduce API calls. 
 - Make sure your GitHub PAT has the necessary permissions to access public repositories.
 - If a chain's data fails to load, ensure it exists in the Cosmos Chain Registry and has a valid `chain.json` file.
 - If you're having issues with a specific chain, try running a forced update using `yarn update-chains-force`.
+- Check the log files in the `logs` directory for detailed information about any errors or issues.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
