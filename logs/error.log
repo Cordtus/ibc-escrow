@@ -1,0 +1,5 @@
+2024-07-20T19:14:58.547Z [error] : Invalid channel ID ID format: undefined {"metadata":{}}
+2024-07-20T19:27:23.873Z [error] : Invalid channel ID ID format: undefined {"metadata":{}}
+2024-07-20T21:40:39.002Z [error] : Invalid channel ID ID format: undefined {"metadata":{}}
+2024-07-20T21:43:10.573Z [error] : Invalid channel ID ID format: undefined {"metadata":{}}
+2024-07-20T21:54:35.705Z [error] : Error: {"metadata":{"error":"Cannot read properties of undefined (reading 'amount')"}}

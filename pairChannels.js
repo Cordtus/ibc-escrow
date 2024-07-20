@@ -1,4 +1,4 @@
-const { loadIBCData, validateId } = require('./ibcUtils');
+import { loadIBCData, validateId } from './ibcUtils.js';
 
 async function getChannelPairs(chain1Name, chain2Name) {
   const ibcData = await loadIBCData(chain1Name, chain2Name);
@@ -20,4 +20,4 @@ async function getChannelPairs(chain1Name, chain2Name) {
   });
 }
 
-module.exports = getChannelPairs;
+export default getChannelPairs;

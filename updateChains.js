@@ -1,13 +1,20 @@
-const fs = require('fs').promises;
-const path = require('path');
-const axios = require('axios');
-const dotenv = require('dotenv');
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import axios from 'axios';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const DATA_DIR = path.join(__dirname, 'data');
 const IBC_DATA_DIR = path.join(DATA_DIR, 'ibc');
-const CONFIG = require('./config.json');
+
+// Load config file
+const configPath = path.join(__dirname, 'config.json');
+const CONFIG = JSON.parse(await fs.readFile(configPath, 'utf8'));
 
 const axiosInstance = axios.create({
   headers: {
@@ -105,7 +112,7 @@ async function updateChainData(forceUpdate = false) {
       }
     }
 
-    // Fetch and update IBC data
+    // Fetch and updsate IBC data
     await fetchIBCData();
 
     await fs.writeFile(path.join(DATA_DIR, 'update_complete'), new Date().toISOString());
@@ -116,9 +123,10 @@ async function updateChainData(forceUpdate = false) {
   }
 }
 
-module.exports = updateChainData;
+export default updateChainData;
 
-if (require.main === module) {
+// Handle script execution
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const forceUpdate = process.argv.includes('-f') || process.argv.includes('--force');
   updateChainData(forceUpdate).catch(error => {
     console.error('An unexpected error occurred:', error);

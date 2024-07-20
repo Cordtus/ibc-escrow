@@ -1,0 +1,143 @@
+2024-07-20T19:11:49.400Z [info] : Starting IBC Escrow Audit Tool {"metadata":{}}
+2024-07-20T19:11:49.402Z [info] : Initializing chain data. This may take a few minutes... {"metadata":{}}
+2024-07-20T19:14:41.333Z [info] : Entering interactive mode {"metadata":{}}
+2024-07-20T19:14:41.334Z [info] : Prompting user: Primary Chain Name:  {"metadata":{}}
+2024-07-20T19:14:52.840Z [info] : User input received for: Primary Chain Name:  {"metadata":{}}
+2024-07-20T19:14:52.840Z [info] : Prompting user: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T19:14:58.545Z [info] : User input received for: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T19:14:58.546Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T19:14:58.546Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T19:14:58.546Z [info] : Loading IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T19:14:58.547Z [info] : IBC data loaded successfully {"metadata":{}}
+2024-07-20T19:14:58.547Z [info] : Loading chain info for: akash {"metadata":{}}
+2024-07-20T19:14:58.547Z [info] : Chain info loaded successfully for: akash {"metadata":{}}
+2024-07-20T19:27:19.898Z [info] : Starting IBC Escrow Audit Tool {"metadata":{}}
+2024-07-20T19:27:19.900Z [info] : Entering interactive mode {"metadata":{}}
+2024-07-20T19:27:19.901Z [info] : Prompting user: Primary Chain Name:  {"metadata":{}}
+2024-07-20T19:27:22.939Z [info] : User input received for: Primary Chain Name:  {"metadata":{}}
+2024-07-20T19:27:22.939Z [info] : Prompting user: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T19:27:23.870Z [info] : User input received for: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T19:27:23.870Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T19:27:23.870Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T19:27:23.871Z [info] : Loading IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T19:27:23.872Z [info] : IBC data loaded successfully {"metadata":{}}
+2024-07-20T19:27:23.872Z [info] : Loading chain info for: akash {"metadata":{}}
+2024-07-20T19:27:23.872Z [info] : Chain info loaded successfully for: akash {"metadata":{}}
+2024-07-20T21:40:34.274Z [info] : Starting IBC Escrow Audit Tool {"metadata":{}}
+2024-07-20T21:40:34.276Z [info] : Entering interactive mode {"metadata":{}}
+2024-07-20T21:40:34.277Z [info] : Prompting user: Primary Chain Name:  {"metadata":{}}
+2024-07-20T21:40:37.963Z [info] : User input received for: Primary Chain Name:  {"metadata":{}}
+2024-07-20T21:40:37.964Z [info] : Prompting user: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T21:40:39.000Z [info] : User input received for: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T21:40:39.000Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:40:39.000Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:40:39.000Z [info] : Loading IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:40:39.002Z [info] : IBC data loaded successfully {"metadata":{}}
+2024-07-20T21:40:39.002Z [info] : Loading chain info for: akash {"metadata":{}}
+2024-07-20T21:40:39.002Z [info] : Chain info loaded successfully for: akash {"metadata":{}}
+2024-07-20T21:43:06.965Z [info] : Starting IBC Escrow Audit Tool {"metadata":{}}
+2024-07-20T21:43:06.968Z [info] : Entering interactive mode {"metadata":{}}
+2024-07-20T21:43:06.968Z [info] : Prompting user: Primary Chain Name:  {"metadata":{}}
+2024-07-20T21:43:09.597Z [info] : User input received for: Primary Chain Name:  {"metadata":{}}
+2024-07-20T21:43:09.597Z [info] : Prompting user: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T21:43:10.571Z [info] : User input received for: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T21:43:10.571Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:43:10.571Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:43:10.571Z [info] : Loading IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:43:10.572Z [info] : IBC data loaded successfully {"metadata":{}}
+2024-07-20T21:43:10.572Z [info] : Loading chain info for: akash {"metadata":{}}
+2024-07-20T21:43:10.573Z [info] : Chain info loaded successfully for: akash {"metadata":{}}
+2024-07-20T21:54:15.489Z [info] : Starting IBC Escrow Audit Tool {"metadata":{}}
+2024-07-20T21:54:15.492Z [info] : Entering interactive mode {"metadata":{}}
+2024-07-20T21:54:15.492Z [info] : Prompting user: Primary Chain Name:  {"metadata":{}}
+2024-07-20T21:54:17.830Z [info] : User input received for: Primary Chain Name:  {"metadata":{}}
+2024-07-20T21:54:17.831Z [info] : Prompting user: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T21:54:18.663Z [info] : User input received for: Secondary Chain Name:  {"metadata":{}}
+2024-07-20T21:54:18.663Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:54:18.663Z [info] : Fetching IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:54:18.664Z [info] : Loading IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:54:18.664Z [info] : IBC data loaded successfully {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Loaded IBC data: {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Primary chain data: {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Secondary chain data: {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Primary channel data: {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Secondary channel data: {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Primary channel ID: channel-9 {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Secondary (counterparty) channel ID: channel-1 {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Validating channel ID ID: channel-9 {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : channel ID ID validated successfully {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Validating counterparty channel ID ID: channel-1 {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : counterparty channel ID ID validated successfully {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Performing IBC escrow audit for akash -> osmosis on channel channel-9 {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Starting IBC escrow audit for akash -> osmosis on channel channel-9 {"metadata":{}}
+2024-07-20T21:54:18.665Z [info] : Loading chain info for: akash {"metadata":{}}
+2024-07-20T21:54:18.666Z [info] : Chain info loaded successfully for: akash {"metadata":{}}
+2024-07-20T21:54:18.666Z [info] : Loading chain info for: osmosis {"metadata":{}}
+2024-07-20T21:54:18.666Z [info] : Chain info loaded successfully for: osmosis {"metadata":{}}
+2024-07-20T21:54:18.667Z [info] : Loading IBC data for akash and osmosis {"metadata":{}}
+2024-07-20T21:54:18.667Z [info] : IBC data loaded successfully {"metadata":{}}
+2024-07-20T21:54:18.667Z [info] : Making API request to path: /ibc/apps/transfer/v1/channels/channel-9/ports/transfer/escrow_address {"metadata":{}}
+2024-07-20T21:54:19.459Z [info] : API request successful: https://api.akash.forbole.com:443/ibc/apps/transfer/v1/channels/channel-9/ports/transfer/escrow_address {"metadata":{}}
+2024-07-20T21:54:19.459Z [info] : Escrow address: akash1wsxce0ls59rtj70fwcrxmtmmv32vpgmgqhpp6x {"metadata":{}}
+2024-07-20T21:54:19.459Z [info] : Making API request to path: /cosmos/bank/v1beta1/balances/akash1wsxce0ls59rtj70fwcrxmtmmv32vpgmgqhpp6x {"metadata":{}}
+2024-07-20T21:54:19.738Z [info] : API request successful: https://api.akash.forbole.com:443/cosmos/bank/v1beta1/balances/akash1wsxce0ls59rtj70fwcrxmtmmv32vpgmgqhpp6x {"metadata":{}}
+2024-07-20T21:54:19.738Z [info] : Making API request to path: /ibc/apps/transfer/v1/denom_traces/16349020D17D10D27827A580BA7DE76C03CD07201143B6BA020273CE659AC8FE {"metadata":{}}
+2024-07-20T21:54:20.017Z [info] : API request successful: https://api.akash.forbole.com:443/ibc/apps/transfer/v1/denom_traces/16349020D17D10D27827A580BA7DE76C03CD07201143B6BA020273CE659AC8FE {"metadata":{}}
+2024-07-20T21:54:20.018Z [info] : Hashing IBC denom: transfer/channel-1/uosmo {"metadata":{}}
+2024-07-20T21:54:20.018Z [info] : Hashed IBC denom: ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B {"metadata":{}}
+2024-07-20T21:54:20.018Z [info] : Making API request to path: /cosmos/bank/v1beta1/supply/ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B {"metadata":{}}
+2024-07-20T21:54:20.255Z [warn] : Failed to fetch from https://lcd.osmosis.zone/ with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:20.255Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:20.902Z [warn] : Failed to fetch from https://rest.osmosis.goldenratiostaking.net with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:20.902Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:21.477Z [warn] : Failed to fetch from https://osmosis-lcd.quickapi.com:443 with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:21.477Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:21.989Z [warn] : Failed to fetch from https://lcd-osmosis.blockapsis.com with status 503, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:21.989Z [info] : Retrying after delay for status 503 {"metadata":{}}
+2024-07-20T21:54:22.652Z [warn] : Failed to fetch from https://lcd-osmosis.blockapsis.com with status 503, attempt 2/3. {"metadata":{}}
+2024-07-20T21:54:22.652Z [info] : Retrying after delay for status 503 {"metadata":{}}
+2024-07-20T21:54:23.314Z [warn] : Failed to fetch from https://lcd-osmosis.blockapsis.com with status 503, attempt 3/3. {"metadata":{}}
+2024-07-20T21:54:23.946Z [warn] : Failed to fetch from https://osmosis-api.lavenderfive.com:443 with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:23.946Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:24.541Z [warn] : Failed to fetch from https://rest-osmosis.ecostake.com with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:24.541Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:25.117Z [warn] : Failed to fetch from https://api-osmosis-ia.cosmosia.notional.ventures with status 502, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:25.117Z [info] : Skipping to next endpoint due to status 502 {"metadata":{}}
+2024-07-20T21:54:25.662Z [warn] : Failed to fetch from https://api-osmosis.cosmos-spaces.cloud with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:25.663Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:26.069Z [warn] : Failed to fetch from https://osmosis-api.polkachu.com with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:26.069Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:26.655Z [warn] : Failed to fetch from https://osmosis.rest.stakin-nodes.com with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:26.655Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:27.205Z [warn] : Failed to fetch from https://osmosis-mainnet-lcd.autostake.com:443 with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:27.205Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:27.815Z [warn] : Failed to fetch from https://api-osmosis-01.stakeflow.io with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:27.815Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:28.230Z [warn] : Failed to fetch from https://osmosis-api.w3coins.io with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:28.230Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:28.535Z [warn] : Failed to fetch from https://lcd-osmosis.whispernode.com:443 with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:28.535Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:28.835Z [warn] : Failed to fetch from https://osmosis-rest.publicnode.com with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:28.835Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:29.474Z [warn] : Failed to fetch from https://community.nuxian-node.ch:6797/osmosis/crpc with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:29.474Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:30.115Z [warn] : Failed to fetch from https://osmosis-api.stake-town.com with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:30.115Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:30.450Z [warn] : Failed to fetch from https://osmosis-api.reece.sh with status 500, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:30.450Z [info] : Retrying after delay for status 500 {"metadata":{}}
+2024-07-20T21:54:30.907Z [warn] : Failed to fetch from https://osmosis-api.reece.sh with status 500, attempt 2/3. {"metadata":{}}
+2024-07-20T21:54:30.907Z [info] : Retrying after delay for status 500 {"metadata":{}}
+2024-07-20T21:54:31.341Z [warn] : Failed to fetch from https://osmosis-api.reece.sh with status 500, attempt 3/3. {"metadata":{}}
+2024-07-20T21:54:31.954Z [warn] : Failed to fetch from https://api.osmosis.validatus.com:443 with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:31.954Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:32.492Z [warn] : Failed to fetch from https://lcd.osmosis.bronbro.io:443 with status 502, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:32.492Z [info] : Skipping to next endpoint due to status 502 {"metadata":{}}
+2024-07-20T21:54:33.246Z [warn] : Failed to fetch from https://osmosis-rest.interstellar-lounge.org with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:33.246Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:33.697Z [warn] : Failed to fetch from https://public.stakewolle.com/cosmos/osmosis/rest with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:33.698Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:34.503Z [warn] : Failed to fetch from https://rest.cros-nest.com/osmosis with status 501, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:34.503Z [info] : Skipping to next endpoint due to status 501 {"metadata":{}}
+2024-07-20T21:54:35.244Z [warn] : Failed to fetch from https://rest-osmo.kewrnode.com with status 502, attempt 1/3. {"metadata":{}}
+2024-07-20T21:54:35.244Z [info] : Skipping to next endpoint due to status 502 {"metadata":{}}
+2024-07-20T21:54:35.705Z [info] : API request successful: https://osmosis-api.noders.services/cosmos/bank/v1beta1/supply/ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B {"metadata":{}}
