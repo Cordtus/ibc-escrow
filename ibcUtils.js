@@ -1,3 +1,4 @@
+// ibcUtils.js
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,15 +14,27 @@ const IBC_DATA_DIR = path.join(DATA_DIR, 'ibc');
 
 async function loadIBCData(chain1, chain2) {
   logger.info(`Loading IBC data for ${chain1} and ${chain2}`);
-  const [sortedChain1, sortedChain2] = [chain1, chain2].sort();
-  const fileName = `${sortedChain1}-${sortedChain2}.json`;
-  const filePath = path.join(IBC_DATA_DIR, fileName);
-
+  
   try {
+    const files = await fs.readdir(IBC_DATA_DIR);
+    const matchingFile = files.find(file => 
+      file.toLowerCase().includes(chain1.toLowerCase()) && 
+      file.toLowerCase().includes(chain2.toLowerCase())
+    );
+
+    if (!matchingFile) {
+      logger.error(`No matching IBC data file found for ${chain1} and ${chain2}`);
+      logger.info('Available IBC data files:', files);
+      throw new Error(`No matching IBC data file found for ${chain1} and ${chain2}`);
+    }
+
+    const filePath = path.join(IBC_DATA_DIR, matchingFile);
     const data = await fs.readFile(filePath, 'utf8');
     const ibcData = JSON.parse(data);
-    
-    if (chain1 !== sortedChain1) {
+
+    const isChain1Primary = ibcData.chain_1.chain_name.toLowerCase() === chain1.toLowerCase();
+
+    if (!isChain1Primary) {
       logger.info('Swapping chain_1 and chain_2 in IBC data');
       [ibcData.chain_1, ibcData.chain_2] = [ibcData.chain_2, ibcData.chain_1];
       ibcData.channels.forEach(channel => {
@@ -33,7 +46,7 @@ async function loadIBCData(chain1, chain2) {
     return ibcData;
   } catch (error) {
     logger.error(`Error loading IBC data for ${chain1}-${chain2}:`, { error: error.message });
-    return null;
+    throw error;
   }
 }
 
@@ -56,14 +69,24 @@ function validateId(id, type) {
   logger.info(`${type} ID validated successfully`);
 }
 
-async function makeRequest(url) {
-  try {
-    const response = await axios.get(url);
-    return response.data;
-  } catch (error) {
-    logger.error(`Error fetching data from ${url}:`, { error: error.message });
-    throw error;
+async function makeRequest(endpoints, path) {
+  logger.info(`Making API request to path: ${path}`);
+  for (const endpoint of endpoints) {
+    const url = `${endpoint}${path}`;
+    logger.info(`Attempting request to: ${url}`);
+    try {
+      const response = await axios.get(url);
+      logger.info(`Successful response from ${url}`);
+      return response.data;
+    } catch (error) {
+      logger.error(`Error fetching data from ${url}:`, { 
+        error: error.message, 
+        status: error.response ? error.response.status : 'Unknown',
+        data: error.response ? error.response.data : 'No data'
+      });
+    }
   }
+  throw new Error(`All endpoints failed for path: ${path}`);
 }
 
 async function fetchIBCData(primaryChain, secondaryChain) {
@@ -76,7 +99,6 @@ async function fetchIBCData(primaryChain, secondaryChain) {
 
   logger.info('Loaded IBC data:', JSON.stringify(ibcData, null, 2));
 
-  // Determine if primaryChain is chain_1 or chain_2 in the IBC data file
   const isPrimaryChain1 = ibcData.chain_1.chain_name === primaryChain;
   const primaryChainData = isPrimaryChain1 ? ibcData.chain_1 : ibcData.chain_2;
   const secondaryChainData = isPrimaryChain1 ? ibcData.chain_2 : ibcData.chain_1;
@@ -118,26 +140,21 @@ async function validateIBCData(ibcData, primaryChainInfo, secondaryChainInfo, pr
   const portId = 'transfer'; // Default port ID
 
   try {
-    // Fetch chain ID
-    const nodeInfo = await makeRequest(`${primaryRestEndpoint}/cosmos/base/tendermint/v1beta1/node_info`);
+    const nodeInfo = await makeRequest(primaryRestEndpoint, '/cosmos/base/tendermint/v1beta1/node_info');
     const chainId = nodeInfo.default_node_info.network;
 
-    // Fetch channel data
-    const channelData = await makeRequest(`${primaryRestEndpoint}/ibc/core/channel/v1/channels/${channelId}/ports/${portId}`);
+    const channelData = await makeRequest(primaryRestEndpoint, `/ibc/core/channel/v1/channels/${channelId}/ports/${portId}`);
     const counterpartyChannelId = channelData.channel.counterparty.channel_id;
     const connectionId = channelData.channel.connection_hops[0];
 
-    // Fetch connection data
-    const connectionData = await makeRequest(`${primaryRestEndpoint}/ibc/core/connection/v1/connections/${connectionId}`);
+    const connectionData = await makeRequest(primaryRestEndpoint, `/ibc/core/connection/v1/connections/${connectionId}`);
     const clientId = connectionData.connection.client_id;
     const counterpartyClientId = connectionData.connection.counterparty.client_id;
     const counterpartyConnectionId = connectionData.connection.counterparty.connection_id;
 
-    // Fetch counterparty chain ID
-    const clientState = await makeRequest(`${primaryRestEndpoint}/ibc/core/channel/v1/channels/${channelId}/ports/${portId}/client_state`);
+    const clientState = await makeRequest(primaryRestEndpoint, `/ibc/core/channel/v1/channels/${channelId}/ports/${portId}/client_state`);
     const counterpartyChainId = clientState.identified_client_state.client_state.chain_id;
 
-    // Validate fetched data against IBC data
     if (chainId !== primaryChainInfo.chain_id) {
       logger.error('Chain ID mismatch');
       return false;
@@ -163,7 +180,6 @@ async function validateIBCData(ibcData, primaryChainInfo, secondaryChainInfo, pr
       return false;
     }
 
-    // Check client ID format
     if (!/^07-tendermint-[0-9]{1,5}$/.test(clientId)) {
       logger.warn(`Unexpected format in fetched client ID. Received: ${clientId}`);
     }

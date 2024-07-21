@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node audit.js",
+    "quick": "node audit.js quick",
+    "comprehensive": "node audit.js comprehensive",
     "update-chains": "node updateChains.js",
     "update-chains-force": "node updateChains.js -f"
   },
@@ -13,6 +15,7 @@
     "axios": "^0.21.1",
     "chalk": "^5.0.0",
     "dotenv": "^10.0.0",
+    "inquirer": "^10.0.4",
     "winston": "^3.3.3"
   },
   "engines": {
