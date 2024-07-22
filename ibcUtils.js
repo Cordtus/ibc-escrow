@@ -159,7 +159,9 @@ async function validateIBCData(
 
   // Check if ibcData and its properties exist
   if (!ibcData || typeof ibcData !== 'object') {
-    logger.error('Invalid IBC data: ibcData is null, undefined, or not an object');
+    logger.error(
+      'Invalid IBC data: ibcData is null, undefined, or not an object'
+    );
     return false;
   }
 
@@ -185,7 +187,9 @@ async function validateIBCData(
   const primaryRestEndpoint = primaryChainInfo.apis.rest[0].address;
   const isPrimaryChain1 = ibcData.chain_1.chain_name === primaryChain;
   const primaryChainData = isPrimaryChain1 ? ibcData.chain_1 : ibcData.chain_2;
-  const secondaryChainData = isPrimaryChain1 ? ibcData.chain_2 : ibcData.chain_1;
+  const secondaryChainData = isPrimaryChain1
+    ? ibcData.chain_2
+    : ibcData.chain_1;
 
   if (!primaryChainData || !secondaryChainData) {
     logger.error('Unable to determine primary and secondary chain data');
@@ -198,7 +202,9 @@ async function validateIBCData(
     return false;
   }
 
-  const channelId = isPrimaryChain1 ? channelData.chain_1.channel_id : channelData.chain_2.channel_id;
+  const channelId = isPrimaryChain1
+    ? channelData.chain_1.channel_id
+    : channelData.chain_2.channel_id;
   if (!channelId) {
     logger.error('Unable to determine channel ID');
     return false;
@@ -213,26 +219,29 @@ async function validateIBCData(
     );
     const chainId = nodeInfo.default_node_info.network;
 
-    const channelDataResponse = await makeRequest(
+    const channelData = await makeRequest(
       [primaryRestEndpoint],
       `/ibc/core/channel/v1/channels/${channelId}/ports/${portId}`
     );
-    const counterpartyChannelId = channelDataResponse.channel.counterparty.channel_id;
-    const connectionId = channelDataResponse.channel.connection_hops[0];
+    const counterpartyChannelId = channelData.channel.counterparty.channel_id;
+    const connectionId = channelData.channel.connection_hops[0];
 
     const connectionData = await makeRequest(
       [primaryRestEndpoint],
       `/ibc/core/connection/v1/connections/${connectionId}`
     );
     const clientId = connectionData.connection.client_id;
-    const counterpartyClientId = connectionData.connection.counterparty.client_id;
-    const counterpartyConnectionId = connectionData.connection.counterparty.connection_id;
+    const counterpartyClientId =
+      connectionData.connection.counterparty.client_id;
+    const counterpartyConnectionId =
+      connectionData.connection.counterparty.connection_id;
 
     const clientState = await makeRequest(
       [primaryRestEndpoint],
       `/ibc/core/channel/v1/channels/${channelId}/ports/${portId}/client_state`
     );
-    const counterpartyChainId = clientState.identified_client_state.client_state.chain_id;
+    const counterpartyChainId =
+      clientState.identified_client_state.client_state.chain_id;
 
     if (chainId !== primaryChainInfo.chain_id) {
       logger.error('Chain ID mismatch');
@@ -256,7 +265,9 @@ async function validateIBCData(
 
     if (
       counterpartyChannelId !==
-      (isPrimaryChain1 ? ibcData.channels[0].chain_2.channel_id : ibcData.channels[0].chain_1.channel_id)
+      (isPrimaryChain1
+        ? ibcData.channels[0].chain_2.channel_id
+        : ibcData.channels[0].chain_1.channel_id)
     ) {
       logger.error('Counterparty Channel ID mismatch');
       return false;
@@ -274,7 +285,9 @@ async function validateIBCData(
     }
 
     if (!/^07-tendermint-[0-9]{1,5}$/.test(clientId)) {
-      logger.warn(`Unexpected format in fetched client ID. Received: ${clientId}`);
+      logger.warn(
+        `Unexpected format in fetched client ID. Received: ${clientId}`
+      );
     }
 
     logger.info('IBC data validated successfully');
