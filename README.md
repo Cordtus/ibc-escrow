@@ -1,16 +1,16 @@
-# IBC Escrow Audit Tool
+# IBC Escrow Auditor
 
 This tool performs an IBC escrow audit between two Cosmos chains, verifying the balances of IBC tokens in escrow accounts.
 
 ## Features
 
 - Interactive CLI for easy chain selection and audit type choice
-- Quick audit for native tokens
+- Quick audit for native tokens of both chains simultaneously
 - Comprehensive audit with recursive unwrapping of IBC tokens
 - Manual channel ID input for custom audits
 - Automatic fetching and caching of chain data from the Cosmos Chain Registry
 - Detailed logging for troubleshooting and monitoring
-- Option to run reverse audits
+- Optimized IBC supply fetching with fallback mechanisms
 
 ## Prerequisites
 
@@ -20,14 +20,12 @@ This tool performs an IBC escrow audit between two Cosmos chains, verifying the 
 ## Setup
 
 1. Clone this repository:
-
    ```
    git clone https://github.com/your-username/ibc-escrow-audit.git
    cd ibc-escrow-audit
    ```
 
 2. Install dependencies:
-
    ```
    yarn install
    ```
@@ -50,19 +48,17 @@ This will start the interactive CLI, guiding you through the following steps:
 1. Select the primary chain
 2. Select the secondary chain
 3. Choose the audit type (Quick, Comprehensive, or Manual Channel ID)
-4. View the audit results
-5. Option to run a reverse audit
+4. View the audit results for both chains
 
 ### Audit Types
 
-- **Quick**: Audits only the native token of the primary chain
-- **Comprehensive**: Audits all tokens in the escrow account, including recursive unwrapping of IBC tokens
+- **Quick**: Audits the native tokens of both chains simultaneously
+- **Comprehensive**: Audits all tokens in the escrow accounts, including recursive unwrapping of IBC tokens
 - **Manual Channel ID**: Allows you to input a specific channel ID and fetches relevant IBC information
 
 ### Other Commands
 
 - Update chain data:
-
   ```
   yarn update-chains
   ```
@@ -74,32 +70,7 @@ This will start the interactive CLI, guiding you through the following steps:
 
 ## Configuration
 
-Adjust settings in `config.json` to customize the tool's behavior:
-
-```json
-{
-  "github": {
-    "owner": "cosmos",
-    "repo": "chain-registry"
-  },
-  "api": {
-    "retries": 3,
-    "delay": 250
-  },
-  "paths": {
-    "dataDir": "data",
-    "logsDir": "logs"
-  },
-  "logging": {
-    "level": "info",
-    "fileLogLevel": "error"
-  },
-  "audit": {
-    "defaultType": "quick",
-    "escrowPort": "transfer"
-  }
-}
-```
+Adjust settings in `config.json` to customize the tool's behavior. (Configuration options remain the same as in the previous version)
 
 ## Logging
 
@@ -112,7 +83,7 @@ You can adjust the logging levels in the `config.json` file.
 
 ## Troubleshooting
 
-- If you encounter rate limiting issues on initialization or when updating chain data, increase the `delay` value in `config.json` or use a GitHub PAT.
+- If you encounter rate limiting issues, increase the `delay` value in `config.json` or use a GitHub PAT.
 - Ensure the chains you're auditing exist in the Cosmos Chain Registry.
 - For issues with specific chains, try running a forced update using `yarn update-chains-force`.
 - Check the log files for detailed information about any errors.
