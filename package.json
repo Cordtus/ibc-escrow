@@ -9,7 +9,10 @@
     "quick": "node audit.js quick",
     "comprehensive": "node audit.js comprehensive",
     "update-chains": "node updateChains.js",
-    "update-chains-force": "node updateChains.js -f"
+    "update-chains-force": "node updateChains.js -f",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "axios": "^0.21.1",
@@ -17,6 +20,12 @@
     "dotenv": "^10.0.0",
     "inquirer": "^10.0.4",
     "winston": "^3.3.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.7.0",
+    "eslint": "^9.7.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3"
   },
   "engines": {
     "node": ">=14.0.0"

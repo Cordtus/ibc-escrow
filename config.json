@@ -12,7 +12,7 @@
     "logsDir": "logs"
   },
   "logging": {
-    "level": "info",
+    "level": "debug",
     "fileLogLevel": "error"
   },
   "audit": {

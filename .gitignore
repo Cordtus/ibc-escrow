@@ -1,3 +1,8 @@
+/logs
 /data
 /node_modules
 .env
+*.log
+*.txt
+.DS_Store
+download-google-protos.js

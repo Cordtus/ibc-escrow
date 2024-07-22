@@ -7,7 +7,7 @@ async function getChannelPairs(chain1Name, chain2Name) {
     throw new Error(`Unable to load IBC data for ${chain1Name}-${chain2Name}`);
   }
 
-  return ibcData.channels.map(channel => {
+  return ibcData.channels.map((channel) => {
     validateId(channel.chain_1.channel_id, 'channel');
     validateId(channel.chain_2.channel_id, 'channel');
     return {
@@ -15,7 +15,7 @@ async function getChannelPairs(chain1Name, chain2Name) {
       [chain2Name]: channel.chain_2.channel_id,
       ordering: channel.ordering,
       version: channel.version,
-      tags: channel.tags
+      tags: channel.tags,
     };
   });
 }
