@@ -1,95 +1,132 @@
 # IBC Escrow Audit Tool
 
-This tool performs an IBC escrow audit between two Cosmos chains.
+This tool performs an IBC escrow audit between two Cosmos chains, verifying the balances of IBC tokens in escrow accounts.
+
+## Features
+
+- Interactive CLI for easy chain selection and audit type choice
+- Quick audit for native tokens
+- Comprehensive audit with recursive unwrapping of IBC tokens
+- Manual channel ID input for custom audits
+- Automatic fetching and caching of chain data from the Cosmos Chain Registry
+- Detailed logging for troubleshooting and monitoring
+- Option to run reverse audits
 
 ## Prerequisites
 
 - Node.js (v14 or later)
 - Yarn (v1.22 or later)
-- GitHub Personal Access Token (optional, but recommended)
-
-> Using a GitHub PAT increases the API rate limit from 60 to 5,000 requests per hour. While not required, it significantly reduces the likelihood of encountering rate limit errors during chain data updates and normal usage.
 
 ## Setup
 
 1. Clone this repository:
+
    ```
    git clone https://github.com/your-username/ibc-escrow-audit.git
    cd ibc-escrow-audit
    ```
 
 2. Install dependencies:
+
    ```
    yarn install
    ```
 
-3. Create a `.env` file in the root directory and add your GitHub PAT:
+3. (Optional) Create a `.env` file in the root directory and add your GitHub PAT to increase API rate limits:
    ```
    GITHUB_PAT=your_github_personal_access_token_here
    ```
 
 ## Usage
 
-Run the script with one of the following commands:
+Run the audit tool:
 
-1. Interactive mode (recommended for first-time users):
-   ```
-   yarn start
-   ```
-   This will prompt you for the necessary inputs.
+```
+yarn start
+```
 
-2. Command-line mode:
-   ```
-   yarn start <sourceChainName> <targetChainName> <channelId>
-   ```
-   - `<sourceChainName>`: The name of the source chain
-   - `<targetChainName>`: The name of the target chain
-   - `<channelId>`: The IBC channel ID to audit
+This will start the interactive CLI, guiding you through the following steps:
 
-   Example:
-   ```
-   yarn start osmosis cosmos channel-0
-   ```
+1. Select the primary chain
+2. Select the secondary chain
+3. Choose the audit type (Quick, Comprehensive, or Manual Channel ID)
+4. View the audit results
+5. Option to run a reverse audit
 
-## First Run
+### Audit Types
 
-On the first run, the script will cache chain data from the Cosmos Chain Registry. This process may take a few minutes. The data will be stored in a `data` directory for future use.
+- **Quick**: Audits only the native token of the primary chain
+- **Comprehensive**: Audits all tokens in the escrow account, including recursive unwrapping of IBC tokens
+- **Manual Channel ID**: Allows you to input a specific channel ID and fetches relevant IBC information
 
-## Updating Chain Data
+### Other Commands
 
-The tool caches chain data locally to improve performance and reduce API calls. There are several ways to update this data:
+- Update chain data:
 
-1. Automatic update when data is missing:
-   If you try to audit a chain that doesn't have local data, you'll be prompted to update the chain data.
+  ```
+  yarn update-chains
+  ```
 
-2. Manual update:
-   You can manually update the chain data by running:
-   ```
-   yarn update-chains
-   ```
-   This will check for updates to all chains and only download data for chains that have been updated since your last download.
+- Force update of all chain data:
+  ```
+  yarn update-chains-force
+  ```
 
-3. Forced update:
-   To force an update of all chains regardless of their last update time, run:
-   ```
-   yarn update-chains-force
-   ```
+## Configuration
 
-### Understanding Update Messages
+Adjust settings in `config.json` to customize the tool's behavior:
 
-- "X is up to date.": The local data for chain X is already the latest version.
-- "Updating X...": The script is downloading new data for chain X.
-- "X updated successfully.": New data for chain X has been downloaded and saved.
-- "Warning: X/chain.json not found. Skipping this chain.": The chain.json file for X doesn't exist in the repository. This chain will be skipped.
-- "Error updating X: [error message]": An error occurred while trying to update chain X. The error message will provide more details.
+```json
+{
+  "github": {
+    "owner": "cosmos",
+    "repo": "chain-registry"
+  },
+  "api": {
+    "retries": 3,
+    "delay": 250
+  },
+  "paths": {
+    "dataDir": "data",
+    "logsDir": "logs"
+  },
+  "logging": {
+    "level": "info",
+    "fileLogLevel": "error"
+  },
+  "audit": {
+    "defaultType": "quick",
+    "escrowPort": "transfer"
+  }
+}
+```
+
+## Logging
+
+Logs are written to the console and to log files in the `logs` directory:
+
+- `error.log`: Contains only error messages
+- `combined.log`: Contains all log messages
+
+You can adjust the logging levels in the `config.json` file.
 
 ## Troubleshooting
 
-- If you encounter rate limiting issues, check the `delay` value in `config.json`.
-- Make sure your GitHub PAT has the necessary permissions to access public repositories.
-- If a chain's data fails to load, ensure it exists in the Cosmos Chain Registry and has a valid `chain.json` file.
-- If you're having issues with a specific chain, try running a forced update using `yarn update-chains-force`.
+- If you encounter rate limiting issues on initialization or when updating chain data, increase the `delay` value in `config.json` or use a GitHub PAT.
+- Ensure the chains you're auditing exist in the Cosmos Chain Registry.
+- For issues with specific chains, try running a forced update using `yarn update-chains-force`.
+- Check the log files for detailed information about any errors.
+- If you're having issues with a specific channel, try using the Manual Channel ID audit type.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Acknowledgements
+
+- [Cosmos Chain Registry](https://github.com/cosmos/chain-registry) for providing chain data
+- [Inquirer.js](https://github.com/SBoudrias/Inquirer.js/) for the interactive CLI
