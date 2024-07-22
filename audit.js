@@ -85,58 +85,171 @@ async function getNativeToken(chainInfo) {
   );
 }
 
+async function fetchTotalSupply(restEndpoints, denom) {
+  const supplyPath = '/cosmos/bank/v1beta1/supply';
+  let nextKey = null;
+  let pageNumber = 1;
+  let totalPages = null;
+
+  do {
+    const params = nextKey ? `?pagination.key=${encodeURIComponent(nextKey)}` : '';
+    const supplyData = await makeRequest(restEndpoints, `${supplyPath}${params}`);
+
+    if (totalPages === null) {
+      totalPages = Math.ceil(parseInt(supplyData.pagination.total) / 100); // Assuming 100 items per page
+    }
+
+    const supply = supplyData.supply.find(s => s.denom === denom);
+    if (supply) {
+      return supply.amount;
+    }
+
+    nextKey = supplyData.pagination.next_key;
+    pageNumber++;
+
+    // If the denom starts with 'ibc/', start from the first page and work forwards
+    if (denom.startsWith('ibc/') && pageNumber === totalPages) {
+      break; // We've reached the end without finding it, so stop here
+    }
+  } while (nextKey);
+
+  throw new Error(`Denom ${denom} not found in total supply`);
+}
+
+async function fetchTotalSupplyFallback(endpoints, denom) {
+  const supplyPath = '/cosmos/bank/v1beta1/supply';
+  let nextKey = null;
+  let pageNumber = 1;
+  let totalPages = null;
+
+  do {
+    const params = nextKey 
+      ? `?pagination.key=${encodeURIComponent(nextKey)}` 
+      : '?pagination.limit=1000';
+    const supplyData = await makeRequest(endpoints, `${supplyPath}${params}`);
+
+    if (totalPages === null) {
+      totalPages = Math.ceil(parseInt(supplyData.pagination.total) / 1000);
+    }
+
+    const supply = supplyData.supply.find(s => s.denom === denom);
+    if (supply) {
+      return supply.amount;
+    }
+
+    nextKey = supplyData.pagination.next_key;
+    pageNumber++;
+
+    if (!nextKey) break;
+
+    logger.info(`Checked page ${pageNumber} of ${totalPages}, denom not found yet.`);
+
+  } while (nextKey);
+
+  logger.warn(`Denom ${denom} not found in total supply after checking all pages.`);
+  return "0";
+}
+
 async function quickAudit(primaryChain, secondaryChain, channelId) {
-  logger.info(
-    `Starting quick IBC escrow audit for ${primaryChain} -> ${secondaryChain} on channel ${channelId}`
-  );
+  logger.info(`Starting quick IBC escrow audit for ${primaryChain} <-> ${secondaryChain} on channel ${channelId}`);
+  
   const primaryChainInfo = await loadChainInfo(primaryChain);
   const secondaryChainInfo = await loadChainInfo(secondaryChain);
 
-  const primaryRestEndpoints = primaryChainInfo.apis.rest.map(
-    (api) => api.address
-  );
-  const secondaryRestEndpoints = secondaryChainInfo.apis.rest.map(
-    (api) => api.address
-  );
+  const primaryNativeToken = await getNativeToken(primaryChainInfo);
+  const secondaryNativeToken = await getNativeToken(secondaryChainInfo);
+  
+  logger.info(`Native token for ${primaryChain}: ${primaryNativeToken}`);
+  logger.info(`Native token for ${secondaryChain}: ${secondaryNativeToken}`);
 
-  const nativeToken = await getNativeToken(primaryChainInfo);
-  logger.info(`Native token for ${primaryChain} identified as: ${nativeToken}`);
+  // Fetch channel data to get counterparty channel ID
+  const channelData = await getChannelData(primaryChainInfo, channelId);
+  const counterpartyChannelId = channelData.channel.counterparty.channel_id;
 
-  const escrowPath = `/ibc/apps/transfer/v1/channels/${channelId}/ports/${config.audit.escrowPort}/escrow_address`;
-  const escrowData = await makeRequest(primaryRestEndpoints, escrowPath);
-  const escrowAddress = escrowData.escrow_address;
+  logger.info(`Primary channel ID: ${channelId}`);
+  logger.info(`Secondary (counterparty) channel ID: ${counterpartyChannelId}`);
 
-  const balancesPath = `/cosmos/bank/v1beta1/balances/${escrowAddress}`;
-  const balancesData = await makeRequest(primaryRestEndpoints, balancesPath);
+  // Perform audit for both chains simultaneously
+  const [primaryAudit, secondaryAudit] = await Promise.all([
+    auditChain(primaryChainInfo, secondaryChainInfo, channelId, counterpartyChannelId, primaryNativeToken),
+    auditChain(secondaryChainInfo, primaryChainInfo, counterpartyChannelId, channelId, secondaryNativeToken)
+  ]);
 
-  const nativeBalance = balancesData.balances.find(
-    (b) => b.denom === nativeToken
-  );
+  // Print combined results
+  console.log('\n========== Quick IBC Escrow Audit Summary ==========');
+  printAuditResult(primaryChain, primaryNativeToken, primaryAudit);
+  console.log('------------------------------------------------------');
+  printAuditResult(secondaryChain, secondaryNativeToken, secondaryAudit);
+  console.log('======================================================\n');
+}
 
-  if (!nativeBalance) {
-    console.log(`No native token (${nativeToken}) found in escrow.`);
-    return;
+async function auditChain(sourceChainInfo, targetChainInfo, sourceChannelId, targetChannelId, nativeToken) {
+  const sourceEndpoints = sourceChainInfo.apis.rest.map(api => api.address);
+  const targetEndpoints = targetChainInfo.apis.rest.map(api => api.address);
+
+  logger.info(`Auditing ${sourceChainInfo.chain_name} -> ${targetChainInfo.chain_name}`);
+
+  // Get escrow address
+  const escrowAddress = await getEscrowAddress(sourceEndpoints, sourceChannelId);
+
+  // Get native token balance in escrow
+  const escrowBalance = await getNativeTokenBalance(sourceEndpoints, escrowAddress, nativeToken);
+
+  // Generate IBC denom for the native token on the target chain
+  const ibcDenom = hashIBCDenom(config.audit.escrowPort, targetChannelId, nativeToken);
+  logger.info(`Generated IBC denom on ${targetChainInfo.chain_name}: ${ibcDenom}`);
+
+  // Get IBC token supply on target chain
+  const ibcSupply = await getIBCSupply(targetEndpoints, ibcDenom);
+
+  return { escrowBalance, ibcSupply };
+}
+
+function printAuditResult(chainName, nativeToken, auditResult) {
+  console.log(`${chainName} Native Token (${nativeToken}):`);
+  console.log(`  Escrow Balance on ${chainName}: ${auditResult.escrowBalance}`);
+  console.log(`  IBC Supply on counterparty: ${auditResult.ibcSupply}`);
+  console.log(`  Difference: ${BigInt(auditResult.escrowBalance) - BigInt(auditResult.ibcSupply)}`);
+}
+
+async function getChannelData(chainInfo, channelId) {
+    const endpoints = chainInfo.apis.rest.map(api => api.address);
+    const channelPath = `/ibc/core/channel/v1/channels/${channelId}/ports/${config.audit.escrowPort}`;
+    return await makeRequest(endpoints, channelPath);
+}
+
+async function getEscrowAddress(endpoints, channelId) {
+    const escrowPath = `/ibc/apps/transfer/v1/channels/${channelId}/ports/${config.audit.escrowPort}/escrow_address`;
+    const escrowData = await makeRequest(endpoints, escrowPath);
+    return escrowData.escrow_address;
+}
+
+async function getNativeTokenBalance(endpoints, address, denom) {
+    const balancePath = `/cosmos/bank/v1beta1/balances/${address}`;
+    const balanceData = await makeRequest(endpoints, balancePath);
+    const nativeBalance = balanceData.balances.find(b => b.denom === denom);
+    return nativeBalance ? nativeBalance.amount : '0';
+}
+
+async function getIBCSupply(endpoints, ibcDenom) {
+  const MAX_PRIMARY_ATTEMPTS = 3; // Limit the number of attempts for the primary method
+  
+  // Try the primary method first
+  for (let i = 0; i < MAX_PRIMARY_ATTEMPTS; i++) {
+    try {
+      const supplyPath = `/cosmos/bank/v1beta1/supply/by_denom?denom=${ibcDenom}`;
+      const supplyData = await makeRequest([endpoints[i]], supplyPath);
+      return supplyData.amount.amount;
+    } catch (error) {
+      logger.warn(`Failed to fetch supply directly from endpoint ${i + 1}. Error: ${error.message}`);
+      if (i === MAX_PRIMARY_ATTEMPTS - 1) {
+        logger.warn(`All ${MAX_PRIMARY_ATTEMPTS} primary method attempts failed. Falling back to total supply method.`);
+      }
+    }
   }
 
-  const counterpartyIbcDenom = hashIBCDenom(
-    config.audit.escrowPort,
-    channelId,
-    nativeToken
-  );
-  const totalSupplyPath = `/cosmos/bank/v1beta1/supply/by_denom?denom=${counterpartyIbcDenom}`;
-  const totalSupplyData = await makeRequest(
-    secondaryRestEndpoints,
-    totalSupplyPath
-  );
-
-  console.log('\n========== Quick IBC Escrow Audit Summary ==========');
-  console.log(`Native Token: ${nativeToken}`);
-  console.log(`Escrow Balance: ${nativeBalance.amount}`);
-  console.log(`Counterparty Total Supply: ${totalSupplyData.amount.amount}`);
-  console.log(
-    `Difference: ${BigInt(nativeBalance.amount) - BigInt(totalSupplyData.amount.amount)}`
-  );
-  console.log('====================================================\n');
+  // If primary method fails, use the fallback method
+  return await fetchTotalSupplyFallback(endpoints, ibcDenom);
 }
 
 async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
@@ -169,6 +282,57 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
     return recursiveUnwrap(nextChainInfo, trace.base_denom, path);
   }
 
+  async function fetchTotalSupply(chainInfo, denom) {
+    const restEndpoints = chainInfo.apis.rest.map((api) => api.address);
+    
+    // Try the original method first
+    try {
+      const totalSupplyPath = `/cosmos/bank/v1beta1/supply/by_denom?denom=${encodeURIComponent(denom)}`;
+      const totalSupplyData = await makeRequest(restEndpoints, totalSupplyPath);
+      if (totalSupplyData && totalSupplyData.amount) {
+        return totalSupplyData.amount.amount;
+      }
+    } catch (error) {
+      logger.warn(`Failed to fetch total supply using the original method for ${denom}:`, error.message);
+    }
+    
+    // If the original method fails, use the alternative method
+    try {
+      const supplyPath = '/cosmos/bank/v1beta1/supply';
+      let nextKey = null;
+      let pageNumber = 1;
+      let totalPages = 1;
+      
+      do {
+        const params = nextKey ? `?pagination.key=${encodeURIComponent(nextKey)}` : '';
+        const supplyData = await makeRequest(restEndpoints, `${supplyPath}${params}`);
+        
+        if (pageNumber === 1) {
+          totalPages = Math.ceil(parseInt(supplyData.pagination.total) / 100); // Assuming 100 items per page
+        }
+        
+        const supply = supplyData.supply.find(s => s.denom === denom);
+        if (supply) {
+          return supply.amount;
+        }
+        
+        nextKey = supplyData.pagination.next_key;
+        pageNumber++;
+        
+        // If the denom starts with 'a', continue to the next page
+        // Otherwise, break if we've reached the last page
+        if (!denom.startsWith('a') && pageNumber > totalPages) {
+          break;
+        }
+      } while (nextKey);
+      
+      throw new Error(`Denom ${denom} not found in total supply`);
+    } catch (error) {
+      logger.error(`Failed to fetch total supply for ${denom}:`, error.message);
+      throw error;
+    }
+  }
+
   logger.info(
     `Starting comprehensive IBC escrow audit for ${primaryChain} -> ${secondaryChain} on channel ${channelId}`
   );
@@ -196,7 +360,9 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
   const stats = {
     totalTokensChecked: 0,
     tokensWithDiscrepancies: 0,
+    tokensWithErrors: 0,
     discrepancies: [],
+    errors: [],
   };
 
   try {
@@ -229,37 +395,33 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
       logger.info(
         `Fetching total supply for ${counterpartyIbcDenom} on secondary chain`
       );
-      const totalSupplyPath = `/cosmos/bank/v1beta1/supply/by_denom?denom=${counterpartyIbcDenom}`;
-      const totalSupplyData = await makeRequest(
-        secondaryRestEndpoints,
-        totalSupplyPath
-      );
+      
+      try {
+        const totalSupply = await fetchTotalSupply(secondaryChainInfo, counterpartyIbcDenom);
 
-      if (!totalSupplyData || !totalSupplyData.amount) {
-        logger.error(
-          `Unexpected response format for total supply of ${counterpartyIbcDenom}:`,
-          totalSupplyData
+        logger.info(
+          `Token: ${baseDenom}, Escrow balance: ${balance.amount}, Counterparty total supply: ${totalSupply}`
         );
-        continue;
-      }
 
-      const totalSupply = totalSupplyData.amount.amount;
-
-      logger.info(
-        `Token: ${baseDenom}, Escrow balance: ${balance.amount}, Counterparty total supply: ${totalSupply}`
-      );
-
-      if (balance.amount !== totalSupply) {
-        logger.warn(`Discrepancy found for ${baseDenom}`);
-        stats.tokensWithDiscrepancies++;
-        stats.discrepancies.push({
+        if (balance.amount !== totalSupply) {
+          logger.warn(`Discrepancy found for ${baseDenom}`);
+          stats.tokensWithDiscrepancies++;
+          stats.discrepancies.push({
+            token: baseDenom,
+            escrowBalance: balance.amount,
+            totalSupply: totalSupply,
+            unwrapPath: unwrapResult.path,
+          });
+        } else {
+          logger.info(`Balances match for ${baseDenom}`);
+        }
+      } catch (error) {
+        logger.error(`Error fetching total supply for ${counterpartyIbcDenom}:`, error.message);
+        stats.tokensWithErrors++;
+        stats.errors.push({
           token: baseDenom,
-          escrowBalance: balance.amount,
-          totalSupply: totalSupply,
-          unwrapPath: unwrapResult.path,
+          error: error.message,
         });
-      } else {
-        logger.info(`Balances match for ${baseDenom}`);
       }
     }
 
@@ -267,6 +429,7 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
     console.log('\n========== IBC Escrow Audit Summary ==========');
     console.log(`Total tokens checked: ${stats.totalTokensChecked}`);
     console.log(`Tokens with discrepancies: ${stats.tokensWithDiscrepancies}`);
+    console.log(`Tokens with errors: ${stats.tokensWithErrors}`);
     console.log('\nDiscrepancies:');
     if (stats.discrepancies.length === 0) {
       console.log('No discrepancies found.');
@@ -284,6 +447,15 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
             `    ${index + 1}. ${step.chain} (${step.port}-${step.channel})`
           );
         });
+      });
+    }
+    console.log('\nErrors:');
+    if (stats.errors.length === 0) {
+      console.log('No errors encountered.');
+    } else {
+      stats.errors.forEach((e) => {
+        console.log(`\nToken: ${e.token}`);
+        console.log(`  Error: ${e.error}`);
       });
     }
     console.log('=============================================\n');
@@ -348,11 +520,7 @@ async function manualChannelAudit(primaryChain, secondaryChain) {
 }
 
 async function runAudit(primaryChain, secondaryChain, auditType) {
-  console.log(
-    chalk.green(
-      `\nStarting ${auditType} audit for ${primaryChain} -> ${secondaryChain}`
-    )
-  );
+  console.log(chalk.green(`\nStarting ${auditType} audit for ${primaryChain} -> ${secondaryChain}`));
   logger.info(`Fetching IBC data for ${primaryChain} and ${secondaryChain}`);
 
   let ibcData;
@@ -360,14 +528,9 @@ async function runAudit(primaryChain, secondaryChain, auditType) {
     ibcData = await fetchIBCData(primaryChain, secondaryChain);
     const primaryChainInfo = await loadChainInfo(primaryChain);
     const secondaryChainInfo = await loadChainInfo(secondaryChain);
-    const isValid = await validateIBCData(
-      ibcData,
-      primaryChainInfo,
-      secondaryChainInfo,
-      primaryChain
-    );
+    const isValid = await validateIBCData(ibcData, primaryChainInfo, secondaryChainInfo, primaryChain);
     if (!isValid) {
-      throw new Error('IBC data validation failed. Aborting audit.');
+      logger.warn('IBC data validation failed. Continuing with audit.');
     }
   }
 
@@ -403,20 +566,6 @@ async function main() {
 
     const { primaryChain, secondaryChain, auditType } = await promptForAudit();
     await runAudit(primaryChain, secondaryChain, auditType);
-
-    const { runReverse } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'runReverse',
-        message:
-          'Would you like to run the audit in reverse (secondary -> primary)?',
-        default: true,
-      },
-    ]);
-
-    if (runReverse) {
-      await runAudit(secondaryChain, primaryChain, auditType);
-    }
 
     console.log(chalk.green('\nAudit completed successfully.'));
     logger.info('Audit completed successfully.');
