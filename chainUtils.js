@@ -20,7 +20,14 @@ async function makeRequest(endpoints, path, method = 'get', payload = null) {
           data: payload,
         });
         logger.info(`Successful response from ${url}`);
-        return response.data;
+        
+        // Check if the chain is 'sei' and return the data without modification
+        if (endpoint.includes('sei')) {
+          return response.data;
+        }
+        
+        // For other chains, check for '.result' property
+        return response.data.result !== undefined ? response.data.result : response.data;
       } catch (error) {
         const status = error.response ? error.response.status : 'Unknown';
         logger.error(`Error fetching data from ${url}:`, {
