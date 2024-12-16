@@ -21,19 +21,20 @@ This tool performs an IBC escrow audit between two Cosmos chains, verifying the 
 
 1. Clone this repository:
 
-   ```
-   git clone https://github.com/your-username/ibc-escrow-audit.git
+   ```sh
+   git clone https://github.com/cordtus/ibc-escrow-audit.git
    cd ibc-escrow-audit
    ```
 
 2. Install dependencies:
 
-   ```
+   ```sh
    yarn install
    ```
 
 3. (Optional) Create a `.env` file in the root directory and add your GitHub PAT to increase API rate limits:
-   ```
+
+   ```sh
    GITHUB_PAT=your_github_personal_access_token_here
    ```
 
@@ -41,7 +42,7 @@ This tool performs an IBC escrow audit between two Cosmos chains, verifying the 
 
 Run the audit tool:
 
-```
+```sh
 yarn start
 ```
 
@@ -63,12 +64,13 @@ This will start the interactive CLI, guiding you through the following steps:
 
 - Update chain data:
 
-  ```
+  ```sh
   yarn update-chains
   ```
 
 - Force update of all chain data:
-  ```
+
+  ```sh
   yarn update-chains-force
   ```
 
