@@ -52,7 +52,7 @@ This will start the interactive CLI, guiding you through the following steps:
 2. Select the secondary chain
 3. Choose the audit type (Quick, Comprehensive, or Manual Channel ID)
 4. View the audit results
-5. Option to run a reverse audit
+5. Automatically runs the check both ways for native/staking token.
 
 ### Audit Types
 
