@@ -12,6 +12,28 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, 'data');
 const IBC_DATA_DIR = path.join(DATA_DIR, 'ibc');
 
+// Helper function to parse IBC paths that handles complex base denoms
+function parseIBCPath(path) {
+  // Find the first occurrence of 'transfer/channel-'
+  const transferIndex = path.indexOf('transfer/channel-');
+  if (transferIndex === -1) {
+    throw new Error(`Invalid IBC path structure: ${path}`);
+  }
+
+  // Extract the port and channel
+  const pathComponents = path.slice(transferIndex).split('/');
+  if (pathComponents.length < 2) {
+    throw new Error(`Invalid IBC path format: ${path}`);
+  }
+
+  return {
+    port: pathComponents[0],
+    channel: pathComponents[1],
+    // Any remaining components would be part of the chain name or base denom
+    remainingPath: pathComponents.slice(2).join('/')
+  };
+}
+
 async function loadIBCData(chain1, chain2) {
   logger.info(`Loading IBC data for ${chain1} and ${chain2}`);
 
@@ -19,8 +41,8 @@ async function loadIBCData(chain1, chain2) {
     const files = await fs.readdir(IBC_DATA_DIR);
     const matchingFile = files.find(
       (file) =>
-        file.toLowerCase().includes(chain1.toLowerCase()) &&
-        file.toLowerCase().includes(chain2.toLowerCase())
+      file.toLowerCase().includes(chain1.toLowerCase()) &&
+      file.toLowerCase().includes(chain2.toLowerCase())
     );
 
     if (!matchingFile) {
@@ -55,6 +77,7 @@ async function loadIBCData(chain1, chain2) {
 
 function hashIBCDenom(portId, channelId, denom) {
   logger.info(`Hashing IBC denom: ${portId}/${channelId}/${denom}`);
+  // The denom might contain forward slashes, but that's OK - we hash the entire string
   const ibcDenom = `${portId}/${channelId}/${denom}`;
   const hash = crypto.createHash('sha256').update(ibcDenom).digest('hex');
   const result = `ibc/${hash.toUpperCase()}`;
@@ -72,6 +95,65 @@ function validateId(id, type) {
     );
   }
   logger.info(`${type} ID validated successfully`);
+}
+
+async function recursiveUnwrap(chainInfo, denom, path = []) {
+  // Base case: If denom is not IBC-prefixed, return the denom and path
+  if (!denom.startsWith('ibc/')) {
+    logger.info(`Resolved base denom: ${denom} on chain: ${chainInfo.chain_name}`);
+    return { baseDenom: denom, path };
+  }
+
+  const hash = denom.split('/')[1];
+  const tracePath = `/ibc/apps/transfer/v1/denom_traces/${hash}`;
+
+  let traceData;
+  try {
+    traceData = await makeRequest(chainInfo.apis.rest.map(api => api.address), tracePath);
+  } catch (error) {
+    logger.error(`Error fetching denom trace for ${denom} on ${chainInfo.chain_name}:`, error.message);
+    return { baseDenom: denom, path };
+  }
+
+  if (!traceData || !traceData.denom_trace) {
+    logger.warn(`No denom trace found for ${denom} on ${chainInfo.chain_name}`);
+    return { baseDenom: denom, path };
+  }
+
+  const trace = traceData.denom_trace;
+
+  try {
+    // Use the new parsing function to handle complex paths
+    const { port, channel, remainingPath } = parseIBCPath(trace.path);
+
+    // Append the current step to the path
+    path.push({
+      chain: chainInfo.chain_name,
+      channel: channel,
+      port: port,
+      // Store the full base denom to maintain the complete path
+      baseDenom: trace.base_denom
+    });
+
+    // Only attempt to load chain info if we have a valid chain name
+    if (remainingPath && !remainingPath.includes('/')) {
+      try {
+        const nextChainInfo = await loadChainInfo(remainingPath);
+        if (nextChainInfo) {
+          return recursiveUnwrap(nextChainInfo, trace.base_denom, path);
+        }
+      } catch (error) {
+        logger.warn(`Could not load chain info for ${remainingPath}, treating as final hop`);
+      }
+    }
+
+    // If we can't load the next chain or the path is complex, return current results
+    return { baseDenom: trace.base_denom, path };
+
+  } catch (error) {
+    logger.error(`Error parsing IBC path for ${denom}:`, error.message);
+    return { baseDenom: trace.base_denom, path };
+  }
 }
 
 async function fetchIBCData(primaryChain, secondaryChain) {
@@ -188,8 +270,8 @@ async function validateIBCData(
   const isPrimaryChain1 = ibcData.chain_1.chain_name === primaryChain;
   const primaryChainData = isPrimaryChain1 ? ibcData.chain_1 : ibcData.chain_2;
   const secondaryChainData = isPrimaryChain1
-    ? ibcData.chain_2
-    : ibcData.chain_1;
+  ? ibcData.chain_2
+  : ibcData.chain_1;
 
   if (!primaryChainData || !secondaryChainData) {
     logger.error('Unable to determine primary and secondary chain data');
@@ -203,8 +285,8 @@ async function validateIBCData(
   }
 
   const channelId = isPrimaryChain1
-    ? channelData.chain_1.channel_id
-    : channelData.chain_2.channel_id;
+  ? channelData.chain_1.channel_id
+  : channelData.chain_2.channel_id;
   if (!channelId) {
     logger.error('Unable to determine channel ID');
     return false;
@@ -232,16 +314,16 @@ async function validateIBCData(
     );
     const clientId = connectionData.connection.client_id;
     const counterpartyClientId =
-      connectionData.connection.counterparty.client_id;
+    connectionData.connection.counterparty.client_id;
     const counterpartyConnectionId =
-      connectionData.connection.counterparty.connection_id;
+    connectionData.connection.counterparty.connection_id;
 
     const clientState = await makeRequest(
       [primaryRestEndpoint],
       `/ibc/core/channel/v1/channels/${channelId}/ports/${portId}/client_state`
     );
     const counterpartyChainId =
-      clientState.identified_client_state.client_state.chain_id;
+    clientState.identified_client_state.client_state.chain_id;
 
     if (chainId !== primaryChainInfo.chain_id) {
       logger.error('Chain ID mismatch');
@@ -266,14 +348,13 @@ async function validateIBCData(
     if (
       counterpartyChannelId !==
       (isPrimaryChain1
-        ? ibcData.channels[0].chain_2.channel_id
-        : ibcData.channels[0].chain_1.channel_id)
+      ? ibcData.channels[0].chain_2.channel_id
+      : ibcData.channels[0].chain_1.channel_id)
     ) {
       logger.error('Counterparty Channel ID mismatch');
       return false;
     }
 
-    // New checks for counterparty client and connection IDs
     if (counterpartyClientId !== secondaryChainData.client_id) {
       logger.error('Counterparty Client ID mismatch');
       return false;
@@ -298,4 +379,29 @@ async function validateIBCData(
   }
 }
 
-export { loadIBCData, hashIBCDenom, validateId, validateIBCData, fetchIBCData };
+// Helper function to retry API requests with exponential backoff
+async function retryRequest(fn, maxRetries = 3, initialDelay = 1000) {
+  let retries = 0;
+  while (retries < maxRetries) {
+    try {
+      return await fn();
+    } catch (error) {
+      retries++;
+      if (retries === maxRetries) throw error;
+      const delay = initialDelay * Math.pow(2, retries - 1);
+      logger.warn(`Request failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
+export {
+  loadIBCData,
+  hashIBCDenom,
+  validateId,
+  validateIBCData,
+  fetchIBCData,
+  recursiveUnwrap,
+  parseIBCPath,
+  retryRequest
+};

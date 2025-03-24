@@ -14,6 +14,7 @@ import {
   validateIBCData,
 } from './ibcUtils.js';
 
+import { recursiveUnwrap, fetchTotalSupply, auditToken } from './recursiveAudit.js';
 import logger from './logger.js';
 import getChannelPairs from './pairChannels.js';
 import { makeRequest, loadChainInfo } from './chainUtils.js';
@@ -31,8 +32,8 @@ const DATA_DIR = path.join(__dirname, config.paths.dataDir);
 async function getAvailableChains() {
   const files = await fs.readdir(DATA_DIR);
   return files
-    .filter((file) => file.endsWith('.json') && file !== 'chain.schema.json')
-    .map((file) => file.replace('.json', ''));
+  .filter((file) => file.endsWith('.json') && file !== 'chain.schema.json')
+  .map((file) => file.replace('.json', ''));
 }
 
 async function promptForAudit() {
@@ -85,80 +86,15 @@ async function getNativeToken(chainInfo) {
   );
 }
 
-async function fetchTotalSupply(restEndpoints, denom) {
-  const supplyPath = '/cosmos/bank/v1beta1/supply';
-  let nextKey = null;
-  let pageNumber = 1;
-  let totalPages = null;
-
-  do {
-    const params = nextKey ? `?pagination.key=${encodeURIComponent(nextKey)}` : '';
-    const supplyData = await makeRequest(restEndpoints, `${supplyPath}${params}`);
-
-    if (totalPages === null) {
-      totalPages = Math.ceil(parseInt(supplyData.pagination.total) / 100); // Assuming 100 items per page
-    }
-
-    const supply = supplyData.supply.find(s => s.denom === denom);
-    if (supply) {
-      return supply.amount;
-    }
-
-    nextKey = supplyData.pagination.next_key;
-    pageNumber++;
-
-    // If the denom starts with 'ibc/', start from the first page and work forwards
-    if (denom.startsWith('ibc/') && pageNumber === totalPages) {
-      break; // We've reached the end without finding it, so stop here
-    }
-  } while (nextKey);
-
-  throw new Error(`Denom ${denom} not found in total supply`);
-}
-
-async function fetchTotalSupplyFallback(endpoints, denom) {
-  const supplyPath = '/cosmos/bank/v1beta1/supply';
-  let nextKey = null;
-  let pageNumber = 1;
-  let totalPages = null;
-
-  do {
-    const params = nextKey 
-      ? `?pagination.key=${encodeURIComponent(nextKey)}` 
-      : '?pagination.limit=1000';
-    const supplyData = await makeRequest(endpoints, `${supplyPath}${params}`);
-
-    if (totalPages === null) {
-      totalPages = Math.ceil(parseInt(supplyData.pagination.total) / 1000);
-    }
-
-    const supply = supplyData.supply.find(s => s.denom === denom);
-    if (supply) {
-      return supply.amount;
-    }
-
-    nextKey = supplyData.pagination.next_key;
-    pageNumber++;
-
-    if (!nextKey) break;
-
-    logger.info(`Checked page ${pageNumber} of ${totalPages}, denom not found yet.`);
-
-  } while (nextKey);
-
-  logger.warn(`Denom ${denom} not found in total supply after checking all pages.`);
-  return "0";
-}
-
 async function quickAudit(primaryChain, secondaryChain, channelId) {
   logger.info(`Starting quick IBC escrow audit for ${primaryChain} <-> ${secondaryChain} on channel ${channelId}`);
-  
+
   const primaryChainInfo = await loadChainInfo(primaryChain);
   const secondaryChainInfo = await loadChainInfo(secondaryChain);
 
   const primaryNativeToken = await getNativeToken(primaryChainInfo);
   const secondaryNativeToken = await getNativeToken(secondaryChainInfo);
-  
+
   logger.info(`Native token for ${primaryChain}: ${primaryNativeToken}`);
   logger.info(`Native token for ${secondaryChain}: ${secondaryNativeToken}`);
 
@@ -172,7 +108,7 @@ async function quickAudit(primaryChain, secondaryChain, channelId) {
   // Perform audit for both chains simultaneously
   const [primaryAudit, secondaryAudit] = await Promise.all([
     auditChain(primaryChainInfo, secondaryChainInfo, channelId, counterpartyChannelId, primaryNativeToken),
-    auditChain(secondaryChainInfo, primaryChainInfo, counterpartyChannelId, channelId, secondaryNativeToken)
+                                                           auditChain(secondaryChainInfo, primaryChainInfo, counterpartyChannelId, channelId, secondaryNativeToken)
   ]);
 
   // Print combined results
@@ -213,28 +149,27 @@ function printAuditResult(chainName, nativeToken, auditResult) {
 }
 
 async function getChannelData(chainInfo, channelId) {
-    const endpoints = chainInfo.apis.rest.map(api => api.address);
-    const channelPath = `/ibc/core/channel/v1/channels/${channelId}/ports/${config.audit.escrowPort}`;
-    return await makeRequest(endpoints, channelPath);
+  const endpoints = chainInfo.apis.rest.map(api => api.address);
+  const channelPath = `/ibc/core/channel/v1/channels/${channelId}/ports/${config.audit.escrowPort}`;
+  return await makeRequest(endpoints, channelPath);
 }
 
 async function getEscrowAddress(endpoints, channelId) {
-    const escrowPath = `/ibc/apps/transfer/v1/channels/${channelId}/ports/${config.audit.escrowPort}/escrow_address`;
-    const escrowData = await makeRequest(endpoints, escrowPath);
-    return escrowData.escrow_address;
+  const escrowPath = `/ibc/apps/transfer/v1/channels/${channelId}/ports/${config.audit.escrowPort}/escrow_address`;
+  const escrowData = await makeRequest(endpoints, escrowPath);
+  return escrowData.escrow_address;
 }
 
 async function getNativeTokenBalance(endpoints, address, denom) {
-    const balancePath = `/cosmos/bank/v1beta1/balances/${address}`;
-    const balanceData = await makeRequest(endpoints, balancePath);
-    const nativeBalance = balanceData.balances.find(b => b.denom === denom);
-    return nativeBalance ? nativeBalance.amount : '0';
+  const balancePath = `/cosmos/bank/v1beta1/balances/${address}`;
+  const balanceData = await makeRequest(endpoints, balancePath);
+  const nativeBalance = balanceData.balances.find(b => b.denom === denom);
+  return nativeBalance ? nativeBalance.amount : '0';
 }
 
 async function getIBCSupply(endpoints, ibcDenom) {
-  const MAX_PRIMARY_ATTEMPTS = 3; // Limit the number of attempts for the primary method
-  
-  // Try the primary method first
+  const MAX_PRIMARY_ATTEMPTS = 3;
+
   for (let i = 0; i < MAX_PRIMARY_ATTEMPTS; i++) {
     try {
       const supplyPath = `/cosmos/bank/v1beta1/supply/by_denom?denom=${ibcDenom}`;
@@ -248,91 +183,10 @@ async function getIBCSupply(endpoints, ibcDenom) {
     }
   }
 
-  // If primary method fails, use the fallback method
-  return await fetchTotalSupplyFallback(endpoints, ibcDenom);
+  return "0";
 }
 
 async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
-  async function recursiveUnwrap(chainInfo, denom, path = []) {
-    if (!denom.startsWith('ibc/')) {
-      return { baseDenom: denom, path };
-    }
-
-    const hash = denom.split('/')[1];
-    const tracePath = `/ibc/apps/transfer/v1/denom_traces/${hash}`;
-    const traceData = await makeRequest(
-      chainInfo.apis.rest.map((api) => api.address),
-      tracePath
-    );
-
-    if (!traceData || !traceData.denom_trace) {
-      return { baseDenom: denom, path };
-    }
-
-    const trace = traceData.denom_trace;
-    path.push({
-      chain: chainInfo.chain_name,
-      channel: trace.path.split('/')[1],
-      port: trace.path.split('/')[0],
-    });
-
-    // Load the info for the next chain in the path
-    const nextChainName = trace.path.split('/')[2];
-    const nextChainInfo = await loadChainInfo(nextChainName);
-    return recursiveUnwrap(nextChainInfo, trace.base_denom, path);
-  }
-
-  async function fetchTotalSupply(chainInfo, denom) {
-    const restEndpoints = chainInfo.apis.rest.map((api) => api.address);
-    
-    // Try the original method first
-    try {
-      const totalSupplyPath = `/cosmos/bank/v1beta1/supply/by_denom?denom=${encodeURIComponent(denom)}`;
-      const totalSupplyData = await makeRequest(restEndpoints, totalSupplyPath);
-      if (totalSupplyData && totalSupplyData.amount) {
-        return totalSupplyData.amount.amount;
-      }
-    } catch (error) {
-      logger.warn(`Failed to fetch total supply using the original method for ${denom}:`, error.message);
-    }
-    
-    // If the original method fails, use the alternative method
-    try {
-      const supplyPath = '/cosmos/bank/v1beta1/supply';
-      let nextKey = null;
-      let pageNumber = 1;
-      let totalPages = 1;
-      
-      do {
-        const params = nextKey ? `?pagination.key=${encodeURIComponent(nextKey)}` : '';
-        const supplyData = await makeRequest(restEndpoints, `${supplyPath}${params}`);
-        
-        if (pageNumber === 1) {
-          totalPages = Math.ceil(parseInt(supplyData.pagination.total) / 100); // Assuming 100 items per page
-        }
-        
-        const supply = supplyData.supply.find(s => s.denom === denom);
-        if (supply) {
-          return supply.amount;
-        }
-        
-        nextKey = supplyData.pagination.next_key;
-        pageNumber++;
-        
-        // If the denom starts with 'a', continue to the next page
-        // Otherwise, break if we've reached the last page
-        if (!denom.startsWith('a') && pageNumber > totalPages) {
-          break;
-        }
-      } while (nextKey);
-      
-      throw new Error(`Denom ${denom} not found in total supply`);
-    } catch (error) {
-      logger.error(`Failed to fetch total supply for ${denom}:`, error.message);
-      throw error;
-    }
-  }
-
   logger.info(
     `Starting comprehensive IBC escrow audit for ${primaryChain} -> ${secondaryChain} on channel ${channelId}`
   );
@@ -347,15 +201,12 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
   const primaryRestEndpoints = primaryChainInfo.apis.rest.map(
     (api) => api.address
   );
-  const secondaryRestEndpoints = secondaryChainInfo.apis.rest.map(
-    (api) => api.address
-  );
 
   const ibcData = await loadIBCData(primaryChain, secondaryChain);
   const isPrimaryChain1 = ibcData.chain_1.chain_name === primaryChain;
   const secondaryChannel = isPrimaryChain1
-    ? ibcData.channels[0].chain_2
-    : ibcData.channels[0].chain_1;
+  ? ibcData.channels[0].chain_2
+  : ibcData.channels[0].chain_1;
 
   const stats = {
     totalTokensChecked: 0,
@@ -379,49 +230,16 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
     for (const balance of balancesData.balances) {
       stats.totalTokensChecked++;
 
-      const unwrapResult = await recursiveUnwrap(
-        primaryChainInfo,
-        balance.denom
-      );
-      const baseDenom = unwrapResult.baseDenom;
+      const result = await auditToken(primaryChainInfo, secondaryChainInfo, balance.denom, balance.amount);
 
-      const counterpartyChannelId = secondaryChannel.channel_id;
-      const counterpartyIbcDenom = hashIBCDenom(
-        config.audit.escrowPort,
-        counterpartyChannelId,
-        baseDenom
-      );
-
-      logger.info(
-        `Fetching total supply for ${counterpartyIbcDenom} on secondary chain`
-      );
-      
-      try {
-        const totalSupply = await fetchTotalSupply(secondaryChainInfo, counterpartyIbcDenom);
-
-        logger.info(
-          `Token: ${baseDenom}, Escrow balance: ${balance.amount}, Counterparty total supply: ${totalSupply}`
-        );
-
-        if (balance.amount !== totalSupply) {
-          logger.warn(`Discrepancy found for ${baseDenom}`);
-          stats.tokensWithDiscrepancies++;
-          stats.discrepancies.push({
-            token: baseDenom,
-            escrowBalance: balance.amount,
-            totalSupply: totalSupply,
-            unwrapPath: unwrapResult.path,
-          });
+      if (result) {
+        if (result.error) {
+          stats.tokensWithErrors++;
+          stats.errors.push(result);
         } else {
-          logger.info(`Balances match for ${baseDenom}`);
+          stats.tokensWithDiscrepancies++;
+          stats.discrepancies.push(result);
         }
-      } catch (error) {
-        logger.error(`Error fetching total supply for ${counterpartyIbcDenom}:`, error.message);
-        stats.tokensWithErrors++;
-        stats.errors.push({
-          token: baseDenom,
-          error: error.message,
-        });
       }
     }
 
@@ -439,7 +257,7 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
         console.log(`  Escrow Balance: ${d.escrowBalance}`);
         console.log(`  Total Supply:   ${d.totalSupply}`);
         console.log(
-          `  Difference:     ${BigInt(d.escrowBalance) - BigInt(d.totalSupply)}`
+          `  Difference:     ${d.difference.toString()}`
         );
         console.log('  Unwrap path:');
         d.unwrapPath.forEach((step, index) => {
@@ -456,6 +274,14 @@ async function comprehensiveAudit(primaryChain, secondaryChain, channelId) {
       stats.errors.forEach((e) => {
         console.log(`\nToken: ${e.token}`);
         console.log(`  Error: ${e.error}`);
+        if (e.unwrapPath) {
+          console.log('  Unwrap path:');
+          e.unwrapPath.forEach((step, index) => {
+            console.log(
+              `    ${index + 1}. ${step.chain} (${step.port}-${step.channel})`
+            );
+          });
+        }
       });
     }
     console.log('=============================================\n');
@@ -472,8 +298,8 @@ async function manualChannelAudit(primaryChain, secondaryChain) {
       name: 'channelId',
       message: 'Enter the channel ID for the primary chain:',
       validate: (input) =>
-        /^channel-\d+$/.test(input) ||
-        'Please enter a valid channel ID (e.g., channel-0)',
+      /^channel-\d+$/.test(input) ||
+      'Please enter a valid channel ID (e.g., channel-0)',
     },
   ]);
 
@@ -496,7 +322,7 @@ async function manualChannelAudit(primaryChain, secondaryChain) {
   const clientId = connectionData.connection.client_id;
   const counterpartyClientId = connectionData.connection.counterparty.client_id;
   const counterpartyConnectionId =
-    connectionData.connection.counterparty.connection_id;
+  connectionData.connection.counterparty.connection_id;
 
   const clientPath = `/ibc/core/client/v1/client_states/${clientId}`;
   const clientData = await makeRequest([primaryRestEndpoint], clientPath);
@@ -576,7 +402,13 @@ async function main() {
   }
 }
 
-main();
+// Start the application if this file is being run directly
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}
 
 export {
   loadIBCData,
@@ -584,4 +416,7 @@ export {
   fetchIBCData,
   quickAudit,
   comprehensiveAudit,
+  getAvailableChains,
+  promptForAudit,
+  runAudit,
 };
