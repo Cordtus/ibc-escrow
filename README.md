@@ -1,134 +1,191 @@
 # IBC Escrow Audit Tool
 
-This tool performs an IBC escrow audit between two Cosmos chains, verifying the balances of IBC tokens in escrow accounts.
+TypeScript CLI tool for auditing IBC token escrow accounts between Cosmos chains. Verifies token balances and performs recursive IBC denomination tracing to origin chains.
 
-## Features
+## Requirements
 
-- Interactive CLI for easy chain selection and audit type choice
-- Quick audit for native tokens
-- Comprehensive audit with recursive unwrapping of IBC tokens
-- Manual channel ID input for custom audits
-- Automatic fetching and caching of chain data from the Cosmos Chain Registry
-- Detailed logging for troubleshooting and monitoring
-- Option to run reverse audits
+- Node.js >=14.0.0
+- Yarn 1.22+
 
-## Prerequisites
+## Installation
 
-- Node.js (v14 or later)
-- Yarn (v1.22 or later)
-
-## Setup
-
-1. Clone this repository:
-
-   ```sh
-   git clone https://github.com/cordtus/ibc-escrow-audit.git
-   cd ibc-escrow-audit
-   ```
-
-2. Install dependencies:
-
-   ```sh
-   yarn install
-   ```
-
-3. (Optional) Create a `.env` file in the root directory and add your GitHub PAT to increase API rate limits:
-
-   ```sh
-   GITHUB_PAT=your_github_personal_access_token_here
-   ```
-
-## Usage
-
-Run the audit tool:
-
-```sh
-yarn start
+```bash
+git clone https://github.com/cordtus/ibc-escrow-audit.git
+cd ibc-escrow-audit
+yarn install
 ```
-
-This will start the interactive CLI, guiding you through the following steps:
-
-1. Select the primary chain
-2. Select the secondary chain
-3. Choose the audit type (Quick, Comprehensive, or Manual Channel ID)
-4. View the audit results
-5. Automatically runs the check both ways for native/staking token.
-
-### Audit Types
-
-- **Quick**: Audits only the native token of the primary chain
-- **Comprehensive**: Audits all tokens in the escrow account, including recursive unwrapping of IBC tokens
-- **Manual Channel ID**: Allows you to input a specific channel ID and fetches relevant IBC information
-
-### Other Commands
-
-- Update chain data:
-
-  ```sh
-  yarn update-chains
-  ```
-
-- Force update of all chain data:
-
-  ```sh
-  yarn update-chains-force
-  ```
 
 ## Configuration
 
-Adjust settings in `config.json` to customize the tool's behavior:
+### Environment Variables
+```bash
+# Optional: GitHub PAT for higher API rate limits
+GITHUB_PAT=your_github_token
+```
+
+### Config File
+Edit `config.json`:
 
 ```json
 {
-  "github": {
-    "owner": "cosmos",
-    "repo": "chain-registry"
-  },
-  "api": {
-    "retries": 3,
-    "delay": 250
-  },
-  "paths": {
-    "dataDir": "data",
-    "logsDir": "logs"
+  "audit": {
+    "useGrpc": true,
+    "defaultType": "quick"
   },
   "logging": {
-    "level": "info",
-    "fileLogLevel": "error"
-  },
-  "audit": {
-    "defaultType": "quick",
-    "escrowPort": "transfer"
+    "level": "info"
   }
 }
 ```
 
+## Usage
+
+### Interactive CLI
+```bash
+yarn start
+```
+
+### Direct Commands
+```bash
+yarn quick              # Native token audit only
+yarn comprehensive     # Full recursive IBC audit
+yarn update-chains     # Sync chain registry data
+```
+
+### Command-Line Arguments
+```bash
+node dist/audit.js quick            # Quick audit
+node dist/audit.js comprehensive    # Comprehensive audit
+node dist/updateChains.js -f        # Force chain data update
+```
+
+## Audit Types
+
+**Quick Audit**
+- Audits native/staking tokens only
+- Compares escrow balances with counterparty supplies
+- Executes bidirectional verification
+
+**Comprehensive Audit**
+- Processes all tokens in escrow accounts
+- Performs recursive IBC denomination unwrapping
+- Traces multi-hop token paths to origin chains
+- Validates complete supply chain integrity
+
+**Manual Channel**
+- Specify custom channel IDs for targeted audits
+
+## Architecture
+
+### Protocol Support
+- **Primary**: gRPC (Cosmos SDK gRPC endpoints)
+- **Fallback**: REST (Cosmos LCD API)
+- **Selection**: Interactive prompt or config-based
+
+### Dependencies
+| Component | Protocol | Purpose |
+|-----------|----------|---------|
+| Balance queries | gRPC/REST | Token balance retrieval |
+| Supply queries | gRPC/REST | Total supply validation |
+| IBC tracing | gRPC/REST | Multi-hop denomination resolution |
+| Chain registry | GitHub REST | Chain configuration sync |
+| Version monitoring | RPC | Cache invalidation triggers |
+
+### Data Sources
+- **Cosmos Chain Registry**: Chain configurations, IBC channel data
+- **Chain APIs**: Real-time balance and supply data
+- **Local Cache**: gRPC descriptors, chain metadata
+
+## Development
+
+### Build Commands
+```bash
+yarn build              # Compile TypeScript
+yarn dev                # Watch mode compilation
+yarn clean              # Remove build artifacts
+```
+
+### Testing
+```bash
+yarn test               # Full test suite
+yarn test:watch         # Watch mode
+yarn test:coverage      # Coverage report
+yarn test src/__tests__/core/ibcUtils.test.ts  # Single file
+```
+
+### Code Quality
+```bash
+yarn lint               # ESLint
+yarn lint:fix           # Auto-fix issues
+yarn format             # Prettier formatting
+```
+
+## Output Structure
+
+### Audit Results
+```typescript
+interface AuditResult {
+  chainName: string;
+  channelId: string;
+  escrowAddress: string;
+  escrowBalance: string;
+  counterpartySupply: string;
+  isBalanced: boolean;
+  discrepancy?: string;
+}
+```
+
+### IBC Token Tracing
+```typescript
+interface TokenTraceResult {
+  baseDenom: string;
+  originChain: string;
+  path: IBCTransferPath[];
+  isComplete: boolean;
+}
+```
+
+## Performance
+
+### gRPC Optimization
+- Connection pooling across queries
+- Descriptor caching with version-aware invalidation
+- Exponential backoff retry logic
+
+### Caching Strategy
+- **Memory**: LRU cache for recent queries
+- **Disk**: Persistent gRPC descriptors and chain data
+- **Invalidation**: Chain version monitoring via `/abci_info`
+
 ## Logging
 
-Logs are written to the console and to log files in the `logs` directory:
+Logs written to console and files in `logs/`:
+- `combined.log`: All messages
+- `error.log`: Error-level only
 
-- `error.log`: Contains only error messages
-- `combined.log`: Contains all log messages
+Performance metrics logged for:
+- API request timing
+- gRPC query duration
+- Audit completion time
+- Cache hit/miss rates
 
-You can adjust the logging levels in the `config.json` file.
+## Error Handling
 
-## Troubleshooting
+### Common Issues
+- **Rate Limits**: Increase `delay` in config or use GitHub PAT
+- **Chain Unavailable**: Tool automatically tries alternate endpoints
+- **gRPC Failures**: Falls back to REST endpoints
+- **Cache Corruption**: Clear `data/grpc-cache/` directory
 
-- If you encounter rate limiting issues on initialization or when updating chain data, increase the `delay` value in `config.json` or use a GitHub PAT.
-- Ensure the chains you're auditing exist in the Cosmos Chain Registry.
-- For issues with specific chains, try running a forced update using `yarn update-chains-force`.
-- Check the log files for detailed information about any errors.
-- If you're having issues with a specific channel, try using the Manual Channel ID audit type.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Debug Mode
+```json
+{
+  "logging": {
+    "level": "debug"
+  }
+}
+```
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Acknowledgements
-
-- [Cosmos Chain Registry](https://github.com/cosmos/chain-registry) for providing chain data
-- [Inquirer.js](https://github.com/SBoudrias/Inquirer.js/) for the interactive CLI
+MIT

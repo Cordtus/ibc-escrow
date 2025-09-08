@@ -17,6 +17,7 @@
   },
   "audit": {
     "defaultType": "quick",
-    "escrowPort": "transfer"
+    "escrowPort": "transfer",
+    "useGrpc": true
   }
 }

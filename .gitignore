@@ -1,6 +1,7 @@
-/logs
-/data
-/node_modules
+logs/
+data/
+node_modules/
+dist/
 .env
 *.log
 *.txt
