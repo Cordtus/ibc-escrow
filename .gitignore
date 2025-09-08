@@ -6,6 +6,3 @@ dist/
 *.log
 *.txt
 .DS_Store
-download-google-protos.js
-temp_repo.zip
-temp_extracted
