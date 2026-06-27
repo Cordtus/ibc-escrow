@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="IBC escrow address lookup for Cosmos chains and transfer channels."
+    />
+    <title>IBC Escrow Explorer</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./assets/app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">IBC transfer module</p>
+          <h1>Escrow Explorer</h1>
+        </div>
+        <div class="status-pill" aria-live="polite">
+          <span id="status-dot" class="status-dot" data-state="idle"></span>
+          <span id="status-text">Ready</span>
+        </div>
+      </header>
+
+      <section class="workspace" aria-label="IBC escrow lookup">
+        <form id="lookup-form" class="panel control-panel">
+          <div class="panel-title">
+            <span>Lookup</span>
+            <span class="panel-rule"></span>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              <span>Chain</span>
+              <input
+                id="chain-name"
+                name="chain"
+                list="chain-options"
+                autocomplete="off"
+                spellcheck="false"
+                required
+              />
+            </label>
+            <label>
+              <span>Channel</span>
+              <input
+                id="channel-id"
+                name="channel"
+                pattern="channel-[0-9]+"
+                autocomplete="off"
+                spellcheck="false"
+                required
+              />
+            </label>
+            <label>
+              <span>Port</span>
+              <input id="port-id" name="port" autocomplete="off" spellcheck="false" required />
+            </label>
+            <label>
+              <span>Endpoint</span>
+              <select id="endpoint-mode" name="endpointMode">
+                <option value="auto">Auto</option>
+                <option value="lazy-lb">Lazy-LB</option>
+                <option value="direct-rest">Direct REST</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="wide-field">
+            <span>Lazy-LB base URL</span>
+            <input
+              id="lazy-lb-base-url"
+              name="lazyLbBaseUrl"
+              type="url"
+              placeholder="https://your-lazy-lb.example"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+
+          <div class="inline-options">
+            <label class="check-row">
+              <input id="include-details" type="checkbox" />
+              <span>Channel details</span>
+            </label>
+            <div class="actions">
+              <button id="reset-button" type="button" class="secondary-button">Reset</button>
+              <button id="lookup-button" type="submit" class="primary-button">Lookup</button>
+            </div>
+          </div>
+
+          <datalist id="chain-options">
+            <option value="cosmoshub"></option>
+            <option value="osmosis"></option>
+            <option value="neutron"></option>
+            <option value="noble"></option>
+            <option value="juno"></option>
+            <option value="stargaze"></option>
+            <option value="stride"></option>
+          </datalist>
+        </form>
+
+        <aside class="panel side-panel">
+          <div class="panel-title">
+            <span>Presets</span>
+            <span class="panel-rule"></span>
+          </div>
+          <div class="preset-list">
+            <button type="button" data-preset="cosmoshub:channel-141">cosmoshub channel-141</button>
+            <button type="button" data-preset="osmosis:channel-0">osmosis channel-0</button>
+            <button type="button" data-preset="noble:channel-4">noble channel-4</button>
+          </div>
+          <div class="panel-title compact">
+            <span>Recent</span>
+            <span class="panel-rule"></span>
+          </div>
+          <div id="history-body" class="history-list"></div>
+        </aside>
+      </section>
+
+      <section class="result-grid" aria-live="polite">
+        <article id="result-panel" class="panel result-panel" hidden>
+          <div class="panel-title">
+            <span>Escrow</span>
+            <span class="panel-rule"></span>
+          </div>
+          <div id="result-body" class="kv-list"></div>
+        </article>
+
+        <article id="detail-panel" class="panel result-panel" hidden>
+          <div class="panel-title">
+            <span>Channel</span>
+            <span class="panel-rule"></span>
+          </div>
+          <div id="detail-body" class="kv-list"></div>
+        </article>
+
+        <article id="trace-panel" class="panel trace-panel" hidden>
+          <div class="panel-title">
+            <span>Requests</span>
+            <span class="panel-rule"></span>
+          </div>
+          <div id="trace-body" class="trace-list"></div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
