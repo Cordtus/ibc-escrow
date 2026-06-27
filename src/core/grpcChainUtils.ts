@@ -1,9 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import logger from './logger.js';
-import { CosmosGrpcClient, createCosmosGrpcClient } from '../grpc/cosmosGrpcClient.js';
+import { type CosmosGrpcClient, createCosmosGrpcClient } from '../grpc/cosmosGrpcClient.js';
 import { loadChainInfo } from './chainUtils.js';
-import type { ChainInfo } from '../types/common.js';
+import logger from './logger.js';
 
 interface GrpcRequestConfig {
   retries: number;
@@ -28,7 +27,7 @@ const loadConfig = async (): Promise<AppConfig> => {
     logger.warn(`Failed to load config, using defaults: ${error}`);
     return {
       api: { retries: 3, delay: 250, timeout: 30000 },
-      paths: { dataDir: 'data' }
+      paths: { dataDir: 'data' },
     };
   }
 };
@@ -48,7 +47,7 @@ export async function getGrpcClient(chainName: string): Promise<CosmosGrpcClient
   const client = await createCosmosGrpcClient(chainInfo, {
     timeout: config.api.timeout,
     maxRetries: config.api.retries,
-    credentials: 'insecure'
+    credentials: 'insecure',
   });
 
   grpcClientCache.set(chainName, client);
@@ -66,9 +65,9 @@ export async function fetchBalanceGrpc(
 
   try {
     const client = await getGrpcClient(chainName);
-    
+
     let balances: Array<{ denom: string; amount: string }>;
-    
+
     if (denom) {
       // Query specific denom
       const balance = await client.queryBalance(address, denom);
@@ -79,16 +78,15 @@ export async function fetchBalanceGrpc(
     }
 
     const duration = Date.now() - startTime;
-    logger.performance('grpc_balance_query', duration, { 
-      chainName, 
-      address, 
-      denom, 
-      balanceCount: balances.length 
+    logger.performance('grpc_balance_query', duration, {
+      chainName,
+      address,
+      denom,
+      balanceCount: balances.length,
     });
 
     logger.debug(`Fetched ${balances.length} balance(s) for address ${address}`);
     return balances;
-
   } catch (error) {
     logger.error(`Failed to fetch balance via gRPC for ${address} on ${chainName}: ${error}`);
     throw error;
@@ -116,7 +114,6 @@ export async function fetchSupplyGrpc(
 
     logger.debug(`Fetched supply for denom ${denom}: ${supply.amount}`);
     return supply;
-
   } catch (error) {
     logger.error(`Failed to fetch supply via gRPC for ${denom} on ${chainName}: ${error}`);
     throw error;
@@ -138,21 +135,22 @@ export async function fetchDenomTraceGrpc(
 
   try {
     const client = await getGrpcClient(chainName);
-    
+
     // Extract hash from IBC denom (ibc/HASH)
     if (!ibcDenom.startsWith('ibc/')) {
       throw new Error(`Invalid IBC denom format: ${ibcDenom}`);
     }
-    
+
     const hash = ibcDenom.split('/')[1];
     const trace = await client.queryDenomTrace(hash);
 
     const duration = Date.now() - startTime;
     logger.performance('grpc_denom_trace_query', duration, { chainName, ibcDenom });
 
-    logger.debug(`Fetched denom trace for ${ibcDenom}: ${trace.denom_trace.path}/${trace.denom_trace.base_denom}`);
+    logger.debug(
+      `Fetched denom trace for ${ibcDenom}: ${trace.denom_trace.path}/${trace.denom_trace.base_denom}`
+    );
     return trace;
-
   } catch (error) {
     logger.error(`Failed to fetch denom trace via gRPC for ${ibcDenom} on ${chainName}: ${error}`);
     throw error;
@@ -177,9 +175,10 @@ export async function fetchChannelInfoGrpc(
 
     logger.debug(`Fetched channel info for ${portId}/${channelId}`);
     return channelInfo;
-
   } catch (error) {
-    logger.error(`Failed to fetch channel info via gRPC for ${portId}/${channelId} on ${chainName}: ${error}`);
+    logger.error(
+      `Failed to fetch channel info via gRPC for ${portId}/${channelId} on ${chainName}: ${error}`
+    );
     throw error;
   }
 }
@@ -201,9 +200,10 @@ export async function fetchConnectionInfoGrpc(
 
     logger.debug(`Fetched connection info for ${connectionId}`);
     return connectionInfo;
-
   } catch (error) {
-    logger.error(`Failed to fetch connection info via gRPC for ${connectionId} on ${chainName}: ${error}`);
+    logger.error(
+      `Failed to fetch connection info via gRPC for ${connectionId} on ${chainName}: ${error}`
+    );
     throw error;
   }
 }
@@ -222,7 +222,6 @@ export async function fetchNodeInfoGrpc(chainName: string): Promise<any> {
 
     logger.debug(`Fetched node info for ${chainName}`);
     return nodeInfo;
-
   } catch (error) {
     logger.error(`Failed to fetch node info via gRPC for ${chainName}: ${error}`);
     throw error;
@@ -235,34 +234,32 @@ export async function validateGrpcEndpoints(chainName: string): Promise<{
   unhealthyEndpoints: string[];
 }> {
   logger.info(`Validating gRPC endpoints for ${chainName}`);
-  
+
   try {
     const chainInfo = await loadChainInfo(chainName);
-    const grpcEndpoints = chainInfo.apis.grpc?.map(api => api.address) || [];
-    
+    const grpcEndpoints = chainInfo.apis.grpc?.map((api) => api.address) || [];
+
     const healthyEndpoints: string[] = [];
     const unhealthyEndpoints: string[] = [];
-    
+
     for (const endpoint of grpcEndpoints) {
       try {
         const client = await createCosmosGrpcClient(chainInfo, {
-          timeout: 5000 // Short timeout for health checks
+          timeout: 5000, // Short timeout for health checks
         });
-        
+
         await client.queryNodeInfo();
         healthyEndpoints.push(endpoint);
         logger.debug(`gRPC endpoint ${endpoint} is healthy`);
-        
+
         await client.close();
-        
       } catch (error) {
         unhealthyEndpoints.push(endpoint);
         logger.warn(`gRPC endpoint ${endpoint} is unhealthy: ${error}`);
       }
     }
-    
+
     return { healthyEndpoints, unhealthyEndpoints };
-    
   } catch (error) {
     logger.error(`Failed to validate gRPC endpoints for ${chainName}: ${error}`);
     throw error;
@@ -288,12 +285,12 @@ export async function recursiveUnwrapTokenGrpc(
       baseDenom: denom,
       originChain: chainName,
       path: currentPath,
-      isComplete: false
+      isComplete: false,
     };
   }
-  
+
   visitedChains.add(chainName);
-  
+
   // If not an IBC token, this is the origin
   if (!denom.startsWith('ibc/')) {
     logger.debug(`Found origin token: ${denom} on ${chainName}`);
@@ -301,54 +298,56 @@ export async function recursiveUnwrapTokenGrpc(
       baseDenom: denom,
       originChain: chainName,
       path: currentPath,
-      isComplete: true
+      isComplete: true,
     };
   }
 
   try {
     // Fetch denom trace using gRPC
     const trace = await fetchDenomTraceGrpc(chainName, denom);
-    
+
     if (!trace?.denom_trace) {
       logger.warn(`No denom trace found for ${denom} on ${chainName}`);
       return {
         baseDenom: denom,
         originChain: chainName,
         path: currentPath,
-        isComplete: false
+        isComplete: false,
       };
     }
 
     const pathParts = trace.denom_trace.path.split('/');
-    
+
     if (pathParts.length < 2) {
       logger.warn(`Invalid trace path: ${trace.denom_trace.path}`);
       return {
         baseDenom: trace.denom_trace.base_denom,
         originChain: chainName,
         path: currentPath,
-        isComplete: false
+        isComplete: false,
       };
     }
 
     const portId = pathParts[0];
     const channelId = pathParts[1];
-    
-    logger.debug(`Tracing ${denom} on ${chainName}: ${portId}/${channelId}/${trace.denom_trace.base_denom}`);
+
+    logger.debug(
+      `Tracing ${denom} on ${chainName}: ${portId}/${channelId}/${trace.denom_trace.base_denom}`
+    );
 
     // Add current hop to path
     const newPath = [...currentPath, { chain: chainName, channelId, portId }];
-    
+
     // Find the counterparty chain for this channel using gRPC
     const counterpartyChain = await findCounterpartyChainGrpc(chainName, channelId);
-    
+
     if (!counterpartyChain) {
       logger.warn(`Could not find counterparty chain for ${chainName}/${channelId}`);
       return {
         baseDenom: trace.denom_trace.base_denom,
         originChain: chainName,
         path: newPath,
-        isComplete: false
+        isComplete: false,
       };
     }
 
@@ -359,53 +358,56 @@ export async function recursiveUnwrapTokenGrpc(
       visitedChains,
       newPath
     );
-
   } catch (error) {
     logger.error(`Error fetching denom trace via gRPC for ${denom} on ${chainName}: ${error}`);
     return {
       baseDenom: denom,
       originChain: chainName,
       path: currentPath,
-      isComplete: false
+      isComplete: false,
     };
   }
 }
 
 // Enhanced counterparty chain finding using gRPC
-async function findCounterpartyChainGrpc(chainName: string, channelId: string): Promise<string | null> {
+async function findCounterpartyChainGrpc(
+  chainName: string,
+  channelId: string
+): Promise<string | null> {
   try {
     // Query channel information to get connection ID
     const channelInfo = await fetchChannelInfoGrpc(chainName, 'transfer', channelId);
-    
+
     if (!channelInfo?.channel?.connection_hops?.length) {
       logger.warn(`No connection hops found for channel ${channelId} on ${chainName}`);
       return null;
     }
-    
+
     const connectionId = channelInfo.channel.connection_hops[0];
-    
+
     // Query connection information to get counterparty client ID
     const connectionInfo = await fetchConnectionInfoGrpc(chainName, connectionId);
-    
+
     if (!connectionInfo?.connection?.counterparty?.client_id) {
       logger.warn(`No counterparty client ID found for connection ${connectionId} on ${chainName}`);
       return null;
     }
-    
+
     const counterpartyClientId = connectionInfo.connection.counterparty.client_id;
-    
+
     // Query client state to get counterparty chain ID
     const clientInfo = await fetchClientStateGrpc(chainName, counterpartyClientId);
-    
+
     if (!clientInfo?.client_state?.chain_id) {
       logger.warn(`No chain ID found for client ${counterpartyClientId} on ${chainName}`);
       return null;
     }
-    
+
     return clientInfo.client_state.chain_id;
-    
   } catch (error) {
-    logger.error(`Error finding counterparty chain via gRPC for ${chainName}/${channelId}: ${error}`);
+    logger.error(
+      `Error finding counterparty chain via gRPC for ${chainName}/${channelId}: ${error}`
+    );
     return null;
   }
 }
@@ -418,7 +420,7 @@ async function fetchClientStateGrpc(chainName: string, clientId: string): Promis
 // Cleanup function to close all gRPC clients
 export async function closeAllGrpcClients(): Promise<void> {
   logger.info('Closing all gRPC clients');
-  
+
   for (const [chainName, client] of grpcClientCache.entries()) {
     try {
       await client.close();
@@ -427,6 +429,6 @@ export async function closeAllGrpcClients(): Promise<void> {
       logger.warn(`Error closing gRPC client for ${chainName}: ${error}`);
     }
   }
-  
+
   grpcClientCache.clear();
 }

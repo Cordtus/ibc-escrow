@@ -4,7 +4,7 @@ TypeScript CLI tool for auditing IBC token escrow accounts between Cosmos chains
 
 ## Requirements
 
-- Node.js >=14.0.0
+- Node.js >=18.0.0
 - Yarn 1.22+
 
 ## Installation
@@ -40,23 +40,32 @@ Edit `config.json`:
 
 ## Usage
 
-### Interactive CLI
+### Terminal UI
 ```bash
 yarn start
 ```
+
+The default interface opens a colorized terminal menu for quick audits, comprehensive
+audits, escrow address lookup, channel inspection, chain data updates, and local
+registry status.
 
 ### Direct Commands
 ```bash
 yarn quick              # Native token audit only
 yarn comprehensive     # Full recursive IBC audit
+yarn lookup             # Look up escrow address by chain/channel
+yarn channel-info       # Inspect channel, connection, and client state
 yarn update-chains     # Sync chain registry data
 ```
 
 ### Command-Line Arguments
 ```bash
-node dist/audit.js quick            # Quick audit
-node dist/audit.js comprehensive    # Comprehensive audit
-node dist/updateChains.js -f        # Force chain data update
+node dist/audit.js quick             # Quick audit
+node dist/audit.js comprehensive     # Comprehensive audit
+node dist/audit.js lookup            # Escrow address lookup
+node dist/audit.js channel-info      # Channel metadata lookup
+node dist/audit.js status            # Local registry status
+node dist/updateChains.js -f         # Force chain data update
 ```
 
 ## Audit Types
@@ -74,6 +83,11 @@ node dist/updateChains.js -f        # Force chain data update
 
 **Manual Channel**
 - Specify custom channel IDs for targeted audits
+
+**Escrow Lookup**
+- Select any chain and registry channel, or enter `channel-0` style IDs manually
+- Queries the Cosmos transfer module escrow address endpoint
+- Can also fetch counterparty channel, connection, and client details
 
 ## Architecture
 
@@ -107,17 +121,16 @@ yarn clean              # Remove build artifacts
 
 ### Testing
 ```bash
-yarn test               # Full test suite
+yarn test               # Node test runner via tsx
 yarn test:watch         # Watch mode
-yarn test:coverage      # Coverage report
-yarn test src/__tests__/core/ibcUtils.test.ts  # Single file
+yarn test:coverage      # Experimental Node coverage report
 ```
 
 ### Code Quality
 ```bash
-yarn lint               # ESLint
-yarn lint:fix           # Auto-fix issues
-yarn format             # Prettier formatting
+yarn lint               # Biome check
+yarn lint:fix           # Biome auto-fix
+yarn format             # Biome formatting
 ```
 
 ## Output Structure

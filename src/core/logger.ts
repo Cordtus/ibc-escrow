@@ -1,10 +1,6 @@
-import winston from 'winston';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import winston from 'winston';
 
 interface LogConfig {
   level: string;
@@ -33,16 +29,16 @@ const loadConfig = async (): Promise<AppConfig> => {
   try {
     const configFile = await fs.readFile(configPath, 'utf8');
     return JSON.parse(configFile) as AppConfig;
-  } catch (error) {
+  } catch (_error) {
     // Fallback configuration
     return {
       logging: {
         level: 'info',
-        fileLogLevel: 'error'
+        fileLogLevel: 'error',
       },
       paths: {
-        logsDir: 'logs'
-      }
+        logsDir: 'logs',
+      },
     };
   }
 };
@@ -76,7 +72,7 @@ const logger = winston.createLogger({
   transports: [
     // Console transport
     new winston.transports.Console({
-      format: consoleFormat
+      format: consoleFormat,
     }),
 
     // Error log file
@@ -85,7 +81,7 @@ const logger = winston.createLogger({
       level: config.logging.fileLogLevel,
       format: fileFormat,
       maxsize: 5242880, // 5MB
-      maxFiles: 5
+      maxFiles: 5,
     }),
 
     // Combined log file
@@ -93,25 +89,25 @@ const logger = winston.createLogger({
       filename: path.join(LOGS_DIR, 'combined.log'),
       format: fileFormat,
       maxsize: 5242880, // 5MB
-      maxFiles: 5
-    })
+      maxFiles: 5,
+    }),
   ],
 
   // Handle exceptions
   exceptionHandlers: [
     new winston.transports.File({
       filename: path.join(LOGS_DIR, 'exceptions.log'),
-      format: fileFormat
-    })
+      format: fileFormat,
+    }),
   ],
 
   // Handle rejections
   rejectionHandlers: [
     new winston.transports.File({
       filename: path.join(LOGS_DIR, 'rejections.log'),
-      format: fileFormat
-    })
-  ]
+      format: fileFormat,
+    }),
+  ],
 });
 
 // Add helper methods for structured logging
@@ -119,7 +115,7 @@ const extendedLogger = Object.assign(logger, {
   stream: {
     write: (message: string): void => {
       logger.info(message.trim());
-    }
+    },
   },
   audit: (action: string, details: Record<string, unknown>): void => {
     logger.info('AUDIT', { action, ...details });
@@ -129,7 +125,7 @@ const extendedLogger = Object.assign(logger, {
   },
   security: (event: string, details: Record<string, unknown>): void => {
     logger.warn('SECURITY', { event, ...details });
-  }
+  },
 });
 
 export default extendedLogger;

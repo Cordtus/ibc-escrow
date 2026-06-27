@@ -1,6 +1,5 @@
 import { promises as fs } from 'fs';
-import path from 'path';
-import { Root, Type, Service, Method } from 'protobufjs';
+import { Method, Root, Service, Type } from 'protobufjs';
 import logger from '../core/logger.js';
 
 export interface GeneratedService {
@@ -28,9 +27,7 @@ export interface ProtoDefinitions {
 export class ProtoDefinitionGenerator {
   private root: Root = new Root();
 
-  async generateFromDescriptors(
-    descriptorProtos: Uint8Array[]
-  ): Promise<ProtoDefinitions> {
+  async generateFromDescriptors(descriptorProtos: Uint8Array[]): Promise<ProtoDefinitions> {
     logger.info('Generating proto definitions from descriptors');
 
     try {
@@ -48,27 +45,25 @@ export class ProtoDefinitionGenerator {
       return {
         services,
         messages,
-        root: this.root
+        root: this.root,
       };
-
     } catch (error) {
       logger.error(`Failed to generate proto definitions: ${error}`);
       throw error;
     }
   }
 
-  private async loadDescriptorProto(descriptorProto: Uint8Array): Promise<void> {
+  private async loadDescriptorProto(_descriptorProto: Uint8Array): Promise<void> {
     try {
       // This would normally use protobufjs descriptor loading
       // For now, we'll create a simplified version
-      
+
       // In a real implementation, you would:
       // 1. Parse the FileDescriptorProto
       // 2. Extract services, messages, and enums
       // 3. Build the protobuf.js Root structure
-      
+
       logger.debug('Loading descriptor proto (simplified implementation)');
-      
     } catch (error) {
       logger.error(`Failed to load descriptor proto: ${error}`);
       throw error;
@@ -79,7 +74,7 @@ export class ProtoDefinitionGenerator {
     const services: GeneratedService[] = [];
 
     // Walk through the root to find all services
-    this.root.nestedArray.forEach(namespace => {
+    this.root.nestedArray.forEach((namespace) => {
       if (namespace instanceof Service) {
         const service = this.processService(namespace);
         if (service) {
@@ -105,7 +100,7 @@ export class ProtoDefinitionGenerator {
             requestStream: method.requestStream || false,
             responseStream: method.responseStream || false,
             fullRequestType: method.resolvedRequestType?.fullName || method.requestType,
-            fullResponseType: method.resolvedResponseType?.fullName || method.responseType
+            fullResponseType: method.resolvedResponseType?.fullName || method.responseType,
           });
         }
       }
@@ -113,9 +108,8 @@ export class ProtoDefinitionGenerator {
       return {
         serviceName: service.name,
         packageName: service.parent?.fullName || '',
-        methods
+        methods,
       };
-
     } catch (error) {
       logger.error(`Failed to process service ${service.name}: ${error}`);
       return null;
@@ -129,11 +123,11 @@ export class ProtoDefinitionGenerator {
       if (ns.nestedArray) {
         ns.nestedArray.forEach((nested: any) => {
           const fullPath = path ? `${path}.${nested.name}` : nested.name;
-          
+
           if (nested instanceof Type) {
             messages.set(fullPath, nested);
           }
-          
+
           // Recursively walk nested types
           if (nested.nestedArray) {
             walkNamespace(nested, fullPath);
@@ -161,13 +155,12 @@ export class ProtoDefinitionGenerator {
       });
 
       // Generate service interfaces
-      definitions.services.forEach(service => {
+      definitions.services.forEach((service) => {
         tsContent += this.generateServiceInterface(service);
       });
 
       await fs.writeFile(outputPath, tsContent, 'utf8');
       logger.info(`TypeScript definitions written to ${outputPath}`);
-
     } catch (error) {
       logger.error(`Failed to generate TypeScript definitions: ${error}`);
       throw error;
@@ -178,11 +171,11 @@ export class ProtoDefinitionGenerator {
     let interfaceCode = `\nexport interface ${name} {\n`;
 
     if (type.fieldsArray) {
-      type.fieldsArray.forEach(field => {
+      type.fieldsArray.forEach((field) => {
         const optional = field.optional ? '?' : '';
         const fieldType = this.mapProtoTypeToTypeScript(field.type);
         const repeated = field.repeated ? '[]' : '';
-        
+
         interfaceCode += `  ${field.name}${optional}: ${fieldType}${repeated};\n`;
       });
     }
@@ -194,7 +187,7 @@ export class ProtoDefinitionGenerator {
   private generateServiceInterface(service: GeneratedService): string {
     let serviceCode = `\nexport interface ${service.serviceName}Client {\n`;
 
-    service.methods.forEach(method => {
+    service.methods.forEach((method) => {
       const requestType = method.fullRequestType;
       const responseType = method.fullResponseType;
 
@@ -220,21 +213,21 @@ export class ProtoDefinitionGenerator {
 
   private mapProtoTypeToTypeScript(protoType: string): string {
     const typeMap: Record<string, string> = {
-      'double': 'number',
-      'float': 'number',
-      'int32': 'number',
-      'int64': 'string | number',
-      'uint32': 'number', 
-      'uint64': 'string | number',
-      'sint32': 'number',
-      'sint64': 'string | number',
-      'fixed32': 'number',
-      'fixed64': 'string | number',
-      'sfixed32': 'number',
-      'sfixed64': 'string | number',
-      'bool': 'boolean',
-      'string': 'string',
-      'bytes': 'Uint8Array'
+      double: 'number',
+      float: 'number',
+      int32: 'number',
+      int64: 'string | number',
+      uint32: 'number',
+      uint64: 'string | number',
+      sint32: 'number',
+      sint64: 'string | number',
+      fixed32: 'number',
+      fixed64: 'string | number',
+      sfixed32: 'number',
+      sfixed64: 'string | number',
+      bool: 'boolean',
+      string: 'string',
+      bytes: 'Uint8Array',
     };
 
     return typeMap[protoType] || protoType;
@@ -258,7 +251,7 @@ export class ${service.serviceName}GrpcClient {
     // this.client = new GrpcClient(endpoint, creds, serviceDefinition);
   }
 
-  ${service.methods.map(method => this.generateMethodWrapper(method)).join('\n\n  ')}
+  ${service.methods.map((method) => this.generateMethodWrapper(method)).join('\n\n  ')}
 }
 `;
   }

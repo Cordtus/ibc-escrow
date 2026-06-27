@@ -1,5 +1,3 @@
-import { ServiceDefinition, MethodDefinition } from '@grpc/grpc-js';
-
 export interface GrpcEndpointInfo {
   address: string;
   provider?: string;
