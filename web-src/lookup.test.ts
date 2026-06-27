@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  buildBalancesPath,
   buildChannelDetails,
   buildChannelPath,
   buildClientStatePath,
   buildConnectionPath,
   buildEscrowAddressPath,
   buildLookupUrl,
+  getNextBalancePageKey,
+  normalizeBalances,
   resolveRequestSource,
 } from './lookup.ts';
 
@@ -20,6 +23,37 @@ describe('web lookup helpers', () => {
       buildChannelPath('channel-141', 'transfer'),
       '/ibc/core/channel/v1/channels/channel-141/ports/transfer'
     );
+  });
+
+  it('builds bank balance paths for escrow addresses', () => {
+    assert.equal(
+      buildBalancesPath('cosmos1x54ltnyg88k0ejmk8ytwrhd3ltm84xehrnlslf'),
+      '/cosmos/bank/v1beta1/balances/cosmos1x54ltnyg88k0ejmk8ytwrhd3ltm84xehrnlslf'
+    );
+    assert.equal(
+      buildBalancesPath('cosmos1x54ltnyg88k0ejmk8ytwrhd3ltm84xehrnlslf', 'a/b='),
+      '/cosmos/bank/v1beta1/balances/cosmos1x54ltnyg88k0ejmk8ytwrhd3ltm84xehrnlslf?pagination.key=a%2Fb%3D'
+    );
+  });
+
+  it('normalizes bank balance responses and pagination', () => {
+    assert.deepEqual(
+      normalizeBalances({
+        balances: [
+          { denom: 'uatom', amount: '12345' },
+          { denom: 'ibc/ABC', amount: '67890' },
+          { denom: '', amount: '1' },
+        ],
+      }),
+      [
+        { denom: 'uatom', amount: '12345' },
+        { denom: 'ibc/ABC', amount: '67890' },
+      ]
+    );
+
+    assert.deepEqual(normalizeBalances({}), []);
+    assert.equal(getNextBalancePageKey({ pagination: { next_key: 'next-page' } }), 'next-page');
+    assert.equal(getNextBalancePageKey({ pagination: { next_key: null } }), undefined);
   });
 
   it('builds direct REST and Lazy-LB URLs', () => {

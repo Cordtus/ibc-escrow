@@ -68,17 +68,7 @@
             </label>
           </div>
 
-          <label class="wide-field">
-            <span>Lazy-LB base URL</span>
-            <input
-              id="lazy-lb-base-url"
-              name="lazyLbBaseUrl"
-              type="url"
-              placeholder="https://your-lazy-lb.example"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </label>
+          <input id="lazy-lb-base-url" name="lazyLbBaseUrl" type="hidden" />
 
           <div class="inline-options">
             <label class="check-row">
@@ -135,6 +125,14 @@
             <span class="panel-rule"></span>
           </div>
           <div id="detail-body" class="kv-list"></div>
+        </article>
+
+        <article id="balances-panel" class="panel trace-panel" hidden>
+          <div class="panel-title">
+            <span id="balances-title">Balances</span>
+            <span class="panel-rule"></span>
+          </div>
+          <div id="balances-body" class="balance-list"></div>
         </article>
 
         <article id="trace-panel" class="panel trace-panel" hidden>

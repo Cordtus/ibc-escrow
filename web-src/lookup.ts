@@ -25,6 +25,22 @@ export interface ChannelDetails {
   version: string;
 }
 
+export interface BalanceRow {
+  denom: string;
+  amount: string;
+}
+
+export interface BalancesResponse {
+  balances?: Array<{
+    denom?: string;
+    amount?: string;
+  }>;
+  pagination?: {
+    next_key?: string | null;
+    total?: string;
+  };
+}
+
 export interface ChannelResponse {
   channel?: {
     counterparty?: {
@@ -102,6 +118,34 @@ export function buildClientStatePath(clientId: string): string {
   }
 
   return `/ibc/core/client/v1/client_states/${encodeURIComponent(clientId.trim())}`;
+}
+
+export function buildBalancesPath(address: string, paginationKey?: string): string {
+  const cleanAddress = address.trim();
+  if (!/^[a-z0-9]+1[ac-hj-np-z02-9]+$/i.test(cleanAddress)) {
+    throw new Error(`Invalid account address: ${address}`);
+  }
+
+  const path = `/cosmos/bank/v1beta1/balances/${encodeURIComponent(cleanAddress)}`;
+  if (!paginationKey) {
+    return path;
+  }
+
+  const query = new URLSearchParams({ 'pagination.key': paginationKey });
+  return `${path}?${query.toString()}`;
+}
+
+export function normalizeBalances(response: BalancesResponse): BalanceRow[] {
+  return (response.balances || [])
+    .filter((balance) => balance.denom && balance.amount)
+    .map((balance) => ({
+      denom: balance.denom as string,
+      amount: balance.amount as string,
+    }));
+}
+
+export function getNextBalancePageKey(response: BalancesResponse): string | undefined {
+  return response.pagination?.next_key || undefined;
 }
 
 export function normalizeBaseUrl(url: string): string {

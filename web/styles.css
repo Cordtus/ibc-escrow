@@ -285,7 +285,8 @@ select:focus {
 }
 
 .kv-list,
-.trace-list {
+.trace-list,
+.balance-list {
   display: grid;
   gap: 0;
   padding: 4px 14px 14px;
@@ -317,6 +318,28 @@ select:focus {
 
 .trace-row {
   grid-template-columns: 120px minmax(0, 1fr);
+}
+
+.balance-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.35fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-height: 42px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(104, 135, 101, 0.22);
+}
+
+.balance-amount {
+  color: var(--green);
+  font: 0.92rem / 1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
+.balance-denom {
+  color: var(--text);
+  font: 0.88rem / 1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
 }
 
 .trace-row a {
@@ -372,7 +395,8 @@ select:focus {
   }
 
   .kv-row,
-  .trace-row {
+  .trace-row,
+  .balance-row {
     grid-template-columns: 1fr;
     gap: 5px;
     padding: 10px 0;
