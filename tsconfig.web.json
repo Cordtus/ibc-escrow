@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./web/assets",
+    "rootDir": "./web-src",
+    "declaration": false,
+    "sourceMap": false,
+    "types": [],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["web-src/**/*.ts"],
+  "exclude": ["web-src/**/*.test.ts"]
+}

@@ -2,6 +2,7 @@ logs/
 data/
 node_modules/
 dist/
+web/assets/
 .env
 *.log
 *.txt

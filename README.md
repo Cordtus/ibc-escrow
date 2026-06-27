@@ -1,6 +1,6 @@
 # IBC Escrow Audit Tool
 
-TypeScript CLI tool for auditing IBC token escrow accounts between Cosmos chains. Verifies token balances and performs recursive IBC denomination tracing to origin chains.
+TypeScript CLI and static web app for auditing and looking up IBC token escrow accounts between Cosmos chains. The CLI uses gRPC-first audits with REST fallback; the web app performs live escrow and channel lookups through Lazy-LB-compatible universal REST paths or direct `rest.cosmos.directory` requests.
 
 ## Requirements
 
@@ -39,6 +39,17 @@ Edit `config.json`:
 ```
 
 ## Usage
+
+### Web App
+```bash
+yarn build:web
+```
+
+Open `web/index.html` locally, or use the GitHub Pages deployment from this repository. The web UI supports:
+- escrow address lookup by chain, port, and channel
+- optional channel, connection, and client-state lookup sequence
+- configurable Lazy-LB base URL, using `/lb/{chain}/{rest-path}`
+- direct REST fallback through `https://rest.cosmos.directory/{chain}`
 
 ### Terminal UI
 ```bash
@@ -114,7 +125,9 @@ node dist/updateChains.js -f         # Force chain data update
 
 ### Build Commands
 ```bash
-yarn build              # Compile TypeScript
+yarn build              # Compile CLI and web TypeScript
+yarn build:cli          # Compile CLI TypeScript
+yarn build:web          # Compile web TypeScript into web/assets
 yarn dev                # Watch mode compilation
 yarn clean              # Remove build artifacts
 ```
@@ -132,6 +145,11 @@ yarn lint               # Biome check
 yarn lint:fix           # Biome auto-fix
 yarn format             # Biome formatting
 ```
+
+### Deployment
+GitHub Pages is deployed by `.github/workflows/pages.yml` on pushes to `main`.
+The workflow installs dependencies with Yarn, runs `yarn build:web`, and publishes
+the `web/` directory.
 
 ## Output Structure
 

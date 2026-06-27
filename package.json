@@ -5,7 +5,9 @@
   "main": "dist/audit.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:cli && npm run build:web",
+    "build:cli": "tsc",
+    "build:web": "tsc -p tsconfig.web.json",
     "dev": "tsc --watch",
     "start": "npm run build && node dist/audit.js",
     "quick": "npm run build && node dist/audit.js quick",
@@ -17,9 +19,9 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
-    "test:watch": "node --import tsx --test --watch \"src/**/*.test.ts\"",
-    "test:coverage": "node --import tsx --test --experimental-test-coverage \"src/**/*.test.ts\"",
+    "test": "node --import tsx --test \"src/**/*.test.ts\" \"web-src/**/*.test.ts\"",
+    "test:watch": "node --import tsx --test --watch \"src/**/*.test.ts\" \"web-src/**/*.test.ts\"",
+    "test:coverage": "node --import tsx --test --experimental-test-coverage \"src/**/*.test.ts\" \"web-src/**/*.test.ts\"",
     "clean": "rimraf dist"
   },
   "dependencies": {

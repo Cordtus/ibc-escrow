@@ -1,0 +1,111 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import {
+  buildChannelDetails,
+  buildChannelPath,
+  buildClientStatePath,
+  buildConnectionPath,
+  buildEscrowAddressPath,
+  buildLookupUrl,
+  resolveRequestSource,
+} from './lookup.ts';
+
+describe('web lookup helpers', () => {
+  it('builds transfer escrow and channel paths', () => {
+    assert.equal(
+      buildEscrowAddressPath('channel-141', 'transfer'),
+      '/ibc/apps/transfer/v1/channels/channel-141/ports/transfer/escrow_address'
+    );
+    assert.equal(
+      buildChannelPath('channel-141', 'transfer'),
+      '/ibc/core/channel/v1/channels/channel-141/ports/transfer'
+    );
+  });
+
+  it('builds direct REST and Lazy-LB URLs', () => {
+    const path = buildEscrowAddressPath('channel-141');
+
+    assert.deepEqual(
+      buildLookupUrl({ chainName: 'cosmoshub', endpointMode: 'direct-rest' }, path),
+      {
+        source: 'direct-rest',
+        url: 'https://rest.cosmos.directory/cosmoshub/ibc/apps/transfer/v1/channels/channel-141/ports/transfer/escrow_address',
+      }
+    );
+
+    assert.deepEqual(
+      buildLookupUrl(
+        {
+          chainName: 'cosmoshub',
+          endpointMode: 'lazy-lb',
+          lazyLbBaseUrl: 'https://lb.example.com/',
+        },
+        path
+      ),
+      {
+        source: 'lazy-lb',
+        url: 'https://lb.example.com/lb/cosmoshub/ibc/apps/transfer/v1/channels/channel-141/ports/transfer/escrow_address',
+      }
+    );
+  });
+
+  it('uses Lazy-LB automatically only when a base URL is configured', () => {
+    assert.equal(
+      resolveRequestSource({ chainName: 'osmosis', endpointMode: 'auto' }),
+      'direct-rest'
+    );
+    assert.equal(
+      resolveRequestSource({
+        chainName: 'osmosis',
+        endpointMode: 'auto',
+        lazyLbBaseUrl: 'https://lb.example.com',
+      }),
+      'lazy-lb'
+    );
+  });
+
+  it('builds dependent channel detail requests and summary data', () => {
+    assert.equal(
+      buildConnectionPath('connection-257'),
+      '/ibc/core/connection/v1/connections/connection-257'
+    );
+    assert.equal(
+      buildClientStatePath('07-tendermint-259'),
+      '/ibc/core/client/v1/client_states/07-tendermint-259'
+    );
+
+    assert.deepEqual(
+      buildChannelDetails(
+        {
+          channel: {
+            counterparty: { channel_id: 'channel-0', port_id: 'transfer' },
+            connection_hops: ['connection-257'],
+            ordering: 'ORDER_UNORDERED',
+            version: 'ics20-1',
+          },
+        },
+        {
+          connection: {
+            client_id: '07-tendermint-259',
+            counterparty: {
+              client_id: '07-tendermint-1',
+              connection_id: 'connection-1',
+            },
+          },
+        },
+        { client_state: { chain_id: 'osmosis-1' } }
+      ),
+      {
+        counterpartyChannelId: 'channel-0',
+        counterpartyPortId: 'transfer',
+        connectionId: 'connection-257',
+        clientId: '07-tendermint-259',
+        counterpartyClientId: '07-tendermint-1',
+        counterpartyConnectionId: 'connection-1',
+        counterpartyChainId: 'osmosis-1',
+        ordering: 'ORDER_UNORDERED',
+        version: 'ics20-1',
+      }
+    );
+  });
+});

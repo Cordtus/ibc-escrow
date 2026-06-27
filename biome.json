@@ -1,7 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
   "files": {
-    "includes": ["src/**/*.ts", "README.md", "package.json", "tsconfig.json", "biome.json"]
+    "includes": [
+      "src/**/*.ts",
+      "web-src/**/*.ts",
+      "README.md",
+      "package.json",
+      "tsconfig.json",
+      "tsconfig.web.json",
+      "biome.json"
+    ]
   },
   "formatter": {
     "enabled": true,
