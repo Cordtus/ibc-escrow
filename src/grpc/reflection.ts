@@ -1,15 +1,13 @@
-import { Client, credentials, ServiceDefinition } from '@grpc/grpc-js';
-import { loadPackageDefinition } from '@grpc/grpc-js';
+import { Client, credentials, loadPackageDefinition } from '@grpc/grpc-js';
 import { load } from '@grpc/proto-loader';
-import logger from '../core/logger.js';
 import { descriptorCache } from '../cache/descriptorCache.js';
+import logger from '../core/logger.js';
 import type {
+  FileDescriptor,
   GrpcCache,
+  GrpcClientConfig,
   ReflectionResponse,
   ServiceInfo,
-  MethodInfo,
-  GrpcClientConfig,
-  FileDescriptor
 } from '../types/grpc.js';
 
 export class GrpcReflectionClient {
@@ -23,7 +21,7 @@ export class GrpcReflectionClient {
       maxRetries: 3,
       timeout: 30000,
       keepAlive: true,
-      ...config
+      ...config,
     };
   }
 
@@ -33,9 +31,8 @@ export class GrpcReflectionClient {
       return existing;
     }
 
-    const clientCredentials = this.config.credentials === 'ssl'
-      ? credentials.createSsl()
-      : credentials.createInsecure();
+    const clientCredentials =
+      this.config.credentials === 'ssl' ? credentials.createSsl() : credentials.createInsecure();
 
     const client = new Client(endpoint, clientCredentials, {
       'grpc.keepalive_time_ms': 30000,
@@ -43,7 +40,7 @@ export class GrpcReflectionClient {
       'grpc.keepalive_permit_without_calls': 1,
       'grpc.http2.max_pings_without_data': 0,
       'grpc.http2.min_time_between_pings_ms': 10000,
-      'grpc.http2.min_ping_interval_without_data_ms': 300000
+      'grpc.http2.min_ping_interval_without_data_ms': 300000,
     });
 
     this.clients.set(endpoint, client);
@@ -62,9 +59,13 @@ export class GrpcReflectionClient {
       const versionCheck = await descriptorCache.checkVersionNeedsUpdate(chainId, rpcEndpoint);
 
       if (versionCheck.needsUpdate) {
-        logger.info(`Chain version changed or no cache found for ${chainId}, fetching new descriptors`);
+        logger.info(
+          `Chain version changed or no cache found for ${chainId}, fetching new descriptors`
+        );
         if (versionCheck.currentVersion && versionCheck.cachedVersion) {
-          logger.info(`Version changed: ${versionCheck.cachedVersion} -> ${versionCheck.currentVersion}`);
+          logger.info(
+            `Version changed: ${versionCheck.cachedVersion} -> ${versionCheck.currentVersion}`
+          );
         }
       } else {
         // Try to get from cache
@@ -84,7 +85,7 @@ export class GrpcReflectionClient {
       endpoint: grpcEndpoint,
       version: '', // Will be filled by version check
       lastChecked: Date.now(),
-      reflection
+      reflection,
     };
 
     await descriptorCache.setDescriptorCache(grpcEndpoint, cacheEntry);
@@ -104,7 +105,7 @@ export class GrpcReflectionClient {
         longs: String,
         enums: String,
         defaults: true,
-        oneofs: true
+        oneofs: true,
       });
 
       const reflectionPackage = loadPackageDefinition(packageDefinition);
@@ -127,9 +128,8 @@ export class GrpcReflectionClient {
       return {
         services,
         descriptors,
-        packageDefinition: packageDefinition
+        packageDefinition: packageDefinition,
       };
-
     } catch (error) {
       logger.error(`Failed to fetch reflection data from ${endpoint}: ${error}`);
       throw new Error(`Reflection failed for ${endpoint}: ${error}`);
@@ -140,23 +140,25 @@ export class GrpcReflectionClient {
     return new Promise((resolve, reject) => {
       // This is a simplified implementation - in practice you'd use the actual
       // reflection protocol to enumerate services
-      const reflectionClient = new (reflectionPackage.grpc.reflection.v1alpha.ServerReflection as any)(
-        client.getChannel()
-      );
+      const reflectionClient = new (
+        reflectionPackage.grpc.reflection.v1alpha.ServerReflection as any
+      )(client.getChannel());
 
       const stream = reflectionClient.ServerReflectionInfo();
 
       stream.write({
-        list_services: "*"
+        list_services: '*',
       });
 
       stream.on('data', (response: any) => {
         if (response.list_services_response) {
-          const services: ServiceInfo[] = response.list_services_response.service.map((svc: any) => ({
-            name: svc.name,
-            methods: [], // Will be filled later
-            packageName: this.extractPackageName(svc.name)
-          }));
+          const services: ServiceInfo[] = response.list_services_response.service.map(
+            (svc: any) => ({
+              name: svc.name,
+              methods: [], // Will be filled later
+              packageName: this.extractPackageName(svc.name),
+            })
+          );
           resolve(services);
         }
       });
@@ -176,14 +178,14 @@ export class GrpcReflectionClient {
     serviceName: string
   ): Promise<FileDescriptor[]> {
     return new Promise((resolve, reject) => {
-      const reflectionClient = new (reflectionPackage.grpc.reflection.v1alpha.ServerReflection as any)(
-        client.getChannel()
-      );
+      const reflectionClient = new (
+        reflectionPackage.grpc.reflection.v1alpha.ServerReflection as any
+      )(client.getChannel());
 
       const stream = reflectionClient.ServerReflectionInfo();
 
       stream.write({
-        file_containing_symbol: serviceName
+        file_containing_symbol: serviceName,
       });
 
       stream.on('data', (response: any) => {
@@ -206,13 +208,13 @@ export class GrpcReflectionClient {
 
   private parseFileDescriptors(descriptorProtos: Uint8Array[]): FileDescriptor[] {
     // This would parse the protobuf descriptors - simplified implementation
-    return descriptorProtos.map((proto, index) => ({
+    return descriptorProtos.map((_proto, index) => ({
       name: `descriptor_${index}.proto`,
       package: '',
       dependencies: [],
       services: [],
       messages: [],
-      enums: []
+      enums: [],
     }));
   }
 
@@ -229,11 +231,11 @@ export class GrpcReflectionClient {
 
   async makeUnaryCall<TRequest, TResponse>(
     endpoint: string,
-    serviceName: string,
-    methodName: string,
-    request: TRequest
+    _serviceName: string,
+    _methodName: string,
+    _request: TRequest
   ): Promise<TResponse> {
-    const client = await this.getOrCreateClient(endpoint);
+    const _client = await this.getOrCreateClient(endpoint);
 
     return new Promise((resolve, reject) => {
       // This would use the actual service definition to make the call

@@ -1,5 +1,4 @@
 import { loadIBCData, validateId } from './ibcUtils.js';
-import type { IBCData } from '../types/common.js';
 
 export interface ChannelPair {
   [chainName: string]: any;
@@ -31,7 +30,7 @@ export default async function getChannelPairs(
       [chain1Name]: channel.chain_1.channel_id,
       [chain2Name]: channel.chain_2.channel_id,
       ordering: channel.ordering,
-      version: channel.version
+      version: channel.version,
     };
 
     if (channel.tags) {

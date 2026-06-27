@@ -1,10 +1,10 @@
+import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import crypto from 'crypto';
-import logger from './logger.js';
-import { makeRequest, loadChainInfo } from './chainUtils.js';
 import type { ChainInfo, IBCData } from '../types/common.js';
+import { loadChainInfo, makeRequest } from './chainUtils.js';
+import logger from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,9 +50,9 @@ export async function loadIBCData(chain1: string, chain2: string): Promise<IBCDa
     const matchingFile = files.find(
       (file) =>
         (file.toLowerCase().includes(chain1.toLowerCase()) &&
-         file.toLowerCase().includes(chain2.toLowerCase())) ||
+          file.toLowerCase().includes(chain2.toLowerCase())) ||
         (file.toLowerCase().includes(chain2.toLowerCase()) &&
-         file.toLowerCase().includes(chain1.toLowerCase()))
+          file.toLowerCase().includes(chain1.toLowerCase()))
     );
 
     if (!matchingFile) {
@@ -72,7 +72,6 @@ export async function loadIBCData(chain1: string, chain2: string): Promise<IBCDa
 
     logger.info(`Successfully loaded IBC data from ${matchingFile}`);
     return parsedData;
-
   } catch (error) {
     logger.error(`Error loading IBC data for ${chain1}-${chain2}:`, error);
     throw error;
@@ -92,11 +91,12 @@ export function validateIBCData(data: unknown): data is IBCData {
     ibcData.channels &&
     Array.isArray(ibcData.channels) &&
     ibcData.channels.length > 0 &&
-    ibcData.channels.every(channel =>
-      channel.chain_1?.channel_id &&
-      channel.chain_2?.channel_id &&
-      channel.ordering &&
-      channel.version
+    ibcData.channels.every(
+      (channel) =>
+        channel.chain_1?.channel_id &&
+        channel.chain_2?.channel_id &&
+        channel.ordering &&
+        channel.version
     )
   );
 }
@@ -105,7 +105,7 @@ export function validateId(id: string, type: 'channel' | 'connection' | 'client'
   const patterns = {
     channel: /^channel-\d+$/,
     connection: /^connection-\d+$/,
-    client: /^07-tendermint-\d+$/
+    client: /^07-tendermint-\d+$/,
   };
 
   if (!patterns[type].test(id)) {
@@ -124,7 +124,7 @@ export async function fetchIBCData(
   type: 'channels' | 'connections' | 'clients',
   id?: string
 ): Promise<unknown> {
-  const restEndpoints = chainInfo.apis.rest.map(api => api.address);
+  const restEndpoints = chainInfo.apis.rest.map((api) => api.address);
   let path = `/ibc/core/${type === 'channels' ? 'channel' : type.slice(0, -1)}/v1/${type}`;
 
   if (id) {
@@ -157,7 +157,7 @@ export async function recursiveUnwrapToken(
       baseDenom: denom,
       originChain: chainName,
       path: currentPath,
-      isComplete: false
+      isComplete: false,
     };
   }
 
@@ -170,7 +170,7 @@ export async function recursiveUnwrapToken(
       baseDenom: denom,
       originChain: chainName,
       path: currentPath,
-      isComplete: true
+      isComplete: true,
     };
   }
 
@@ -179,7 +179,7 @@ export async function recursiveUnwrapToken(
 
   try {
     const traceData = await makeRequest<DenomTrace>(
-      chainInfo.apis.rest.map(api => api.address),
+      chainInfo.apis.rest.map((api) => api.address),
       tracePath
     );
 
@@ -189,7 +189,7 @@ export async function recursiveUnwrapToken(
         baseDenom: denom,
         originChain: chainName,
         path: currentPath,
-        isComplete: false
+        isComplete: false,
       };
     }
 
@@ -202,7 +202,7 @@ export async function recursiveUnwrapToken(
         baseDenom: trace.base_denom,
         originChain: chainName,
         path: currentPath,
-        isComplete: false
+        isComplete: false,
       };
     }
 
@@ -223,7 +223,7 @@ export async function recursiveUnwrapToken(
         baseDenom: trace.base_denom,
         originChain: chainName,
         path: newPath,
-        isComplete: false
+        isComplete: false,
       };
     }
 
@@ -241,24 +241,22 @@ export async function recursiveUnwrapToken(
         visitedChains,
         newPath
       );
-
     } catch (error) {
       logger.error(`Failed to continue tracing on ${counterpartyChain}: ${error}`);
       return {
         baseDenom: trace.base_denom,
         originChain: counterpartyChain,
         path: newPath,
-        isComplete: false
+        isComplete: false,
       };
     }
-
   } catch (error) {
     logger.error(`Error fetching denom trace for ${denom} on ${chainName}: ${error}`);
     return {
       baseDenom: denom,
       originChain: chainName,
       path: currentPath,
-      isComplete: false
+      isComplete: false,
     };
   }
 }
@@ -278,16 +276,21 @@ async function findCounterpartyChain(chainName: string, channelId: string): Prom
 
         // Check if this file contains our chain and channel
         for (const channel of ibcData.channels) {
-          if (ibcData.chain_1.chain_name === chainName && channel.chain_1.channel_id === channelId) {
+          if (
+            ibcData.chain_1.chain_name === chainName &&
+            channel.chain_1.channel_id === channelId
+          ) {
             return ibcData.chain_2.chain_name;
           }
-          if (ibcData.chain_2.chain_name === chainName && channel.chain_2.channel_id === channelId) {
+          if (
+            ibcData.chain_2.chain_name === chainName &&
+            channel.chain_2.channel_id === channelId
+          ) {
             return ibcData.chain_1.chain_name;
           }
         }
       } catch (error) {
         logger.debug(`Error parsing IBC file ${file}: ${error}`);
-        continue;
       }
     }
 
@@ -317,21 +320,20 @@ export async function getTokenOrigin(
         fromChain: hop.chain,
         toChain: nextHop?.chain || result.originChain,
         channelId: hop.channelId,
-        portId: hop.portId
+        portId: hop.portId,
       };
     });
 
-    const fullPath = result.path
-      .map(hop => `${hop.portId}/${hop.channelId}`)
-      .join('/') + (result.path.length > 0 ? `/${result.baseDenom}` : '');
+    const fullPath =
+      result.path.map((hop) => `${hop.portId}/${hop.channelId}`).join('/') +
+      (result.path.length > 0 ? `/${result.baseDenom}` : '');
 
     return {
       originalDenom: result.baseDenom,
       originChain: result.originChain,
       hops,
-      fullPath
+      fullPath,
     };
-
   } catch (error) {
     logger.error(`Failed to get token origin for ${denom}: ${error}`);
     return null;
@@ -342,16 +344,21 @@ export async function getTokenOrigin(
 export async function getAllEscrowTokens(
   chainInfo: ChainInfo,
   escrowAddress: string
-): Promise<Array<{
-  denom: string;
-  amount: string;
-  origin?: TokenOrigin;
-  isNative: boolean;
-}>> {
+): Promise<
+  Array<{
+    denom: string;
+    amount: string;
+    origin?: TokenOrigin;
+    isNative: boolean;
+  }>
+> {
   try {
     const balances = await makeRequest<{
       balances: Array<{ denom: string; amount: string }>;
-    }>(chainInfo.apis.rest.map(api => api.address), `/cosmos/bank/v1beta1/balances/${escrowAddress}`);
+    }>(
+      chainInfo.apis.rest.map((api) => api.address),
+      `/cosmos/bank/v1beta1/balances/${escrowAddress}`
+    );
 
     const tokens = [];
 
@@ -360,20 +367,19 @@ export async function getAllEscrowTokens(
       let origin: TokenOrigin | undefined;
 
       if (!isNative) {
-        origin = await getTokenOrigin(chainInfo, balance.denom) || undefined;
+        origin = (await getTokenOrigin(chainInfo, balance.denom)) || undefined;
       }
 
       tokens.push({
         denom: balance.denom,
         amount: balance.amount,
         origin,
-        isNative
+        isNative,
       });
     }
 
     logger.info(`Found ${tokens.length} tokens in escrow address ${escrowAddress}`);
     return tokens;
-
   } catch (error) {
     logger.error(`Failed to get escrow tokens: ${error}`);
     throw error;

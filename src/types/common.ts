@@ -95,6 +95,9 @@ export interface AuditOptions {
   primaryChain: string;
   secondaryChain: string;
   channelId?: string;
+  portId?: string;
+  counterpartyChannelId?: string;
+  counterpartyPortId?: string;
   reverse?: boolean;
   protocol?: 'grpc' | 'rest';
 }

@@ -1,12 +1,8 @@
-import axios, { AxiosResponse } from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import logger from './logger.js';
 import type { ChainInfo } from '../types/common.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import logger from './logger.js';
 
 interface RequestConfig {
   retries: number;
@@ -30,7 +26,7 @@ const loadConfig = async (): Promise<AppConfig> => {
     logger.warn(`Failed to load config, using defaults: ${error}`);
     return {
       api: { retries: 3, delay: 250 },
-      paths: { dataDir: 'data' }
+      paths: { dataDir: 'data' },
     };
   }
 };
@@ -61,8 +57,8 @@ export async function makeRequest<T = unknown>(
           timeout: 30000, // 30 second timeout
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'ibc-escrow-audit/1.0.0'
-          }
+            'User-Agent': 'ibc-escrow-audit/1.0.0',
+          },
         });
 
         const duration = Date.now() - startTime;
@@ -77,7 +73,6 @@ export async function makeRequest<T = unknown>(
         // For other chains, check for '.result' property (Cosmos REST API pattern)
         const data = response.data as any;
         return data.result !== undefined ? data.result : response.data;
-
       } catch (error) {
         const axiosError = error as any;
         const status = axiosError.response?.status;
@@ -92,9 +87,9 @@ export async function makeRequest<T = unknown>(
 
         // Add exponential backoff delay between attempts
         if (attempt < maxRetries - 1) {
-          const backoffDelay = delay * Math.pow(2, attempt);
+          const backoffDelay = delay * 2 ** attempt;
           logger.debug(`Waiting ${backoffDelay}ms before next attempt`);
-          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
         }
       }
     }
@@ -124,7 +119,6 @@ export async function loadChainInfo(chainName: string): Promise<ChainInfo> {
 
     logger.debug(`Successfully loaded chain info for ${chainName}`);
     return chainInfo;
-
   } catch (error) {
     logger.error(`Failed to load chain info for ${chainName}: ${error}`);
     throw new Error(`Chain info not found for ${chainName}: ${error}`);
@@ -137,13 +131,12 @@ export async function getAvailableChains(): Promise<string[]> {
   try {
     const files = await fs.readdir(dataDir);
     const chainFiles = files
-      .filter(file => file.endsWith('.json') && file !== 'chain.schema.json')
-      .map(file => file.replace('.json', ''))
+      .filter((file) => file.endsWith('.json') && file !== 'chain.schema.json')
+      .map((file) => file.replace('.json', ''))
       .sort();
 
     logger.debug(`Found ${chainFiles.length} available chains`);
     return chainFiles;
-
   } catch (error) {
     logger.error(`Failed to get available chains: ${error}`);
     throw new Error(`Failed to read chain directory: ${error}`);
@@ -160,14 +153,14 @@ export async function validateChainEndpoints(chainInfo: ChainInfo): Promise<{
     rpc: string[];
   };
 }> {
-  const restEndpoints = chainInfo.apis.rest?.map(api => api.address) || [];
-  const grpcEndpoints = chainInfo.apis.grpc?.map(api => api.address) || [];
-  const rpcEndpoints = chainInfo.apis.rpc?.map(api => api.address) || [];
+  const restEndpoints = chainInfo.apis.rest?.map((api) => api.address) || [];
+  const grpcEndpoints = chainInfo.apis.grpc?.map((api) => api.address) || [];
+  const rpcEndpoints = chainInfo.apis.rpc?.map((api) => api.address) || [];
 
   const healthyEndpoints = {
     rest: [],
     grpc: [],
-    rpc: []
+    rpc: [],
   } as { rest: string[]; grpc: string[]; rpc: string[] };
 
   // Test REST endpoints
@@ -200,7 +193,7 @@ export async function validateChainEndpoints(chainInfo: ChainInfo): Promise<{
     restEndpoints,
     grpcEndpoints,
     rpcEndpoints,
-    healthyEndpoints
+    healthyEndpoints,
   };
 }
 
@@ -211,7 +204,7 @@ export function getEscrowAddress(
 ): string {
   // This is a simplified implementation
   // In practice, you'd use the actual IBC escrow address derivation logic
-  const escrowIdentifier = `${portId}/${channelId}`;
+  logger.debug(`Generating placeholder escrow address for ${portId}/${channelId}`);
   // This should use the actual address derivation from the IBC module
   // For now, returning a placeholder that follows the expected pattern
   return `${bech32Prefix}1escrow${channelId}placeholder`;
@@ -223,7 +216,7 @@ export async function fetchBalance(
   address: string,
   denom?: string
 ): Promise<{ denom: string; amount: string }[]> {
-  const restEndpoints = chainInfo.apis.rest.map(api => api.address);
+  const restEndpoints = chainInfo.apis.rest.map((api) => api.address);
   const path = `/cosmos/bank/v1beta1/balances/${address}`;
 
   try {
@@ -236,12 +229,11 @@ export async function fetchBalance(
 
     // Filter by specific denom if requested
     if (denom) {
-      balances = balances.filter(balance => balance.denom === denom);
+      balances = balances.filter((balance) => balance.denom === denom);
     }
 
     logger.debug(`Fetched ${balances.length} balance(s) for address ${address}`);
     return balances;
-
   } catch (error) {
     logger.error(`Failed to fetch balance for ${address}: ${error}`);
     throw error;
@@ -253,7 +245,7 @@ export async function fetchSupply(
   chainInfo: ChainInfo,
   denom: string
 ): Promise<{ denom: string; amount: string }> {
-  const restEndpoints = chainInfo.apis.rest.map(api => api.address);
+  const restEndpoints = chainInfo.apis.rest.map((api) => api.address);
   const path = `/cosmos/bank/v1beta1/supply/by_denom?denom=${encodeURIComponent(denom)}`;
 
   try {
@@ -267,7 +259,6 @@ export async function fetchSupply(
 
     logger.debug(`Fetched supply for denom ${denom}: ${response.amount.amount}`);
     return response.amount;
-
   } catch (error) {
     logger.error(`Failed to fetch supply for ${denom}: ${error}`);
     throw error;

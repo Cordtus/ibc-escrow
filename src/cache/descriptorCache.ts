@@ -1,9 +1,8 @@
 import { promises as fs } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { LRUCache } from 'lru-cache';
+import path from 'path';
 import logger from '../core/logger.js';
-import type { GrpcCache, AbciInfoResponse, ChainVersionInfo } from '../types/index.js';
+import type { AbciInfoResponse, ChainVersionInfo, GrpcCache } from '../types/index.js';
 
 // Use built-in fetch (Node.js 18+)
 
@@ -99,7 +98,7 @@ export class DescriptorCache {
 
     // If we haven't checked recently, get the current version
     const now = Date.now();
-    if (!cachedVersionInfo || (now - cachedVersionInfo.lastChecked) > VERSION_CHECK_INTERVAL) {
+    if (!cachedVersionInfo || now - cachedVersionInfo.lastChecked > VERSION_CHECK_INTERVAL) {
       try {
         const currentVersion = await this.fetchChainVersion(rpcEndpoint);
 
@@ -122,8 +121,8 @@ export class DescriptorCache {
           lastChecked: now,
           ...(needsUpdate && {
             appVersion: currentVersion,
-            descriptorsUpdated: now
-          })
+            descriptorsUpdated: now,
+          }),
         };
 
         this.versionCache.set(versionKey, updatedVersionInfo);
@@ -132,9 +131,8 @@ export class DescriptorCache {
         return {
           needsUpdate,
           currentVersion,
-          cachedVersion: cachedVersionInfo.appVersion
+          cachedVersion: cachedVersionInfo.appVersion,
         };
-
       } catch (error) {
         logger.warn(`Failed to check version for ${chainId}: ${error}`);
         // If version check fails, don't update unless we have no cache at all
@@ -156,7 +154,7 @@ export class DescriptorCache {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as AbciInfoResponse;
+      const data = (await response.json()) as AbciInfoResponse;
       return data.result.response.version;
     } catch (error) {
       throw new Error(`Failed to fetch chain version from ${url}: ${error}`);
