@@ -1,4 +1,7 @@
 import {
+  type BalanceRow,
+  type BalancesResponse,
+  buildBalancesPath,
   buildChannelDetails,
   buildChannelPath,
   buildClientStatePath,
@@ -12,7 +15,9 @@ import {
   type EndpointMode,
   extractClientId,
   extractConnectionId,
+  getNextBalancePageKey,
   type LookupUrlOptions,
+  normalizeBalances,
 } from './lookup.js';
 
 interface AppSettings {
@@ -39,14 +44,27 @@ interface HistoryEntry {
 
 const STORAGE_KEY = 'ibc-escrow-web-settings';
 const HISTORY_KEY = 'ibc-escrow-web-history';
-const DEFAULT_SETTINGS: AppSettings = {
-  chainName: 'cosmoshub',
-  channelId: 'channel-141',
-  portId: 'transfer',
-  endpointMode: 'auto',
-  lazyLbBaseUrl: '',
-  includeDetails: true,
-};
+const HOSTED_LAZY_LB_BASE_URL = 'https://ibc-escrow.cac-group.io';
+
+function getDefaultLazyLbBaseUrl(): string {
+  const origin = window.location.origin;
+  if (origin === HOSTED_LAZY_LB_BASE_URL) {
+    return origin;
+  }
+
+  return HOSTED_LAZY_LB_BASE_URL;
+}
+
+function getDefaultSettings(): AppSettings {
+  return {
+    chainName: 'cosmoshub',
+    channelId: 'channel-141',
+    portId: 'transfer',
+    endpointMode: 'auto',
+    lazyLbBaseUrl: getDefaultLazyLbBaseUrl(),
+    includeDetails: true,
+  };
+}
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -70,6 +88,9 @@ const statusText = byId<HTMLSpanElement>('status-text');
 const statusDot = byId<HTMLSpanElement>('status-dot');
 const resultPanel = byId<HTMLElement>('result-panel');
 const resultBody = byId<HTMLElement>('result-body');
+const balancesPanel = byId<HTMLElement>('balances-panel');
+const balancesTitle = byId<HTMLElement>('balances-title');
+const balancesBody = byId<HTMLElement>('balances-body');
 const detailPanel = byId<HTMLElement>('detail-panel');
 const detailBody = byId<HTMLElement>('detail-body');
 const tracePanel = byId<HTMLElement>('trace-panel');
@@ -77,11 +98,16 @@ const traceBody = byId<HTMLElement>('trace-body');
 const historyBody = byId<HTMLElement>('history-body');
 
 function loadSettings(): AppSettings {
+  const defaults = getDefaultSettings();
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') as Partial<AppSettings>;
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    return {
+      ...defaults,
+      ...parsed,
+      lazyLbBaseUrl: parsed.lazyLbBaseUrl?.trim() || defaults.lazyLbBaseUrl,
+    };
   } catch {
-    return DEFAULT_SETTINGS;
+    return defaults;
   }
 }
 
@@ -124,7 +150,7 @@ function buildLookupOptions(settings: AppSettings): LookupUrlOptions {
   return {
     chainName: settings.chainName,
     endpointMode: settings.endpointMode,
-    lazyLbBaseUrl: settings.lazyLbBaseUrl,
+    lazyLbBaseUrl: settings.lazyLbBaseUrl || getDefaultLazyLbBaseUrl(),
   };
 }
 
@@ -221,6 +247,67 @@ function renderChannelDetails(details: ChannelDetails): void {
   detailPanel.hidden = false;
 }
 
+function renderBalances(balances: BalanceRow[]): void {
+  clearNode(balancesBody);
+  balancesTitle.textContent = `Balances (${balances.length})`;
+
+  if (balances.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'No balances returned for this escrow account';
+    balancesBody.append(empty);
+    balancesPanel.hidden = false;
+    return;
+  }
+
+  for (const balance of balances) {
+    const row = document.createElement('div');
+    row.className = 'balance-row';
+
+    const amount = document.createElement('span');
+    amount.className = 'balance-amount';
+    amount.textContent = balance.amount;
+
+    const denom = document.createElement('span');
+    denom.className = 'balance-denom';
+    denom.textContent = balance.denom;
+
+    row.append(amount, denom);
+    balancesBody.append(row);
+  }
+
+  balancesPanel.hidden = false;
+}
+
+async function fetchAllBalances(
+  options: LookupUrlOptions,
+  escrowAddress: string,
+  requests: Array<{ label: string; url: string }>
+): Promise<BalanceRow[]> {
+  const balances: BalanceRow[] = [];
+  let paginationKey: string | undefined;
+
+  for (let page = 0; page < 20; page += 1) {
+    const balancesRequest = buildLookupUrl(
+      options,
+      buildBalancesPath(escrowAddress, paginationKey)
+    );
+    requests.push({
+      label: page === 0 ? 'balances' : `balances ${page + 1}`,
+      url: balancesRequest.url,
+    });
+    const balancesData = (await fetchJson(balancesRequest.url)) as BalancesResponse;
+    balances.push(...normalizeBalances(balancesData));
+
+    paginationKey = getNextBalancePageKey(balancesData);
+    if (!paginationKey) {
+      return balances;
+    }
+  }
+
+  throw new Error('Balance lookup exceeded pagination limit');
+}
+
 function renderTrace(requests: Array<{ label: string; url: string }>): void {
   clearNode(traceBody);
   for (const request of requests) {
@@ -293,6 +380,10 @@ async function runLookup(settings: AppSettings): Promise<void> {
 
   renderEscrowResult(settings, escrowData.escrow_address, escrowRequest.source);
 
+  setStatus('Querying escrow balances', 'busy');
+  const balances = await fetchAllBalances(options, escrowData.escrow_address, requests);
+  renderBalances(balances);
+
   if (settings.includeDetails) {
     setStatus('Querying channel details', 'busy');
     const channelRequest = buildLookupUrl(
@@ -347,12 +438,16 @@ form.addEventListener('submit', async (event) => {
 });
 
 resetButton.addEventListener('click', () => {
-  applySettings(DEFAULT_SETTINGS);
-  saveSettings(DEFAULT_SETTINGS);
+  const defaultSettings = getDefaultSettings();
+  applySettings(defaultSettings);
+  saveSettings(defaultSettings);
   clearNode(resultBody);
+  clearNode(balancesBody);
+  balancesTitle.textContent = 'Balances';
   clearNode(detailBody);
   clearNode(traceBody);
   resultPanel.hidden = true;
+  balancesPanel.hidden = true;
   detailPanel.hidden = true;
   tracePanel.hidden = true;
   setStatus('Ready', 'idle');
