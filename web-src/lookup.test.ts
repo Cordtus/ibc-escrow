@@ -11,6 +11,7 @@ import {
   buildIbcDenom,
   buildLookupUrl,
   buildSupplyByDenomPath,
+  getChainMetadataFeedback,
   getNextBalancePageKey,
   normalizeBalances,
   normalizeChainSelection,
@@ -164,6 +165,35 @@ describe('web lookup helpers', () => {
     );
 
     assert.deepEqual(normalizeChainSummaries({}), []);
+  });
+
+  it('describes chain metadata loading and fallback states for the UI', () => {
+    assert.deepEqual(getChainMetadataFeedback('loading'), {
+      statusMessage: 'Loading chains',
+      statusState: 'busy',
+      note: 'Loading chain metadata from Lazy-LB',
+      chainControlsDisabled: true,
+      lookupDisabled: true,
+      placeholderText: 'Loading chains...',
+    });
+
+    assert.deepEqual(getChainMetadataFeedback('ready'), {
+      statusMessage: 'Ready',
+      statusState: 'idle',
+      note: '',
+      chainControlsDisabled: false,
+      lookupDisabled: false,
+      placeholderText: '',
+    });
+
+    assert.deepEqual(getChainMetadataFeedback('fallback'), {
+      statusMessage: 'Limited chain list',
+      statusState: 'error',
+      note: 'Chain metadata unavailable; using limited fallback chains',
+      chainControlsDisabled: false,
+      lookupDisabled: false,
+      placeholderText: '',
+    });
   });
 
   it('resolves chain selections by name or chain ID', () => {

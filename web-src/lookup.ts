@@ -39,6 +39,18 @@ export interface ChainSummary {
   restCount: number;
 }
 
+export type StatusState = 'idle' | 'busy' | 'ok' | 'error';
+export type ChainMetadataState = 'loading' | 'ready' | 'fallback';
+
+export interface ChainMetadataFeedback {
+  statusMessage: string;
+  statusState: StatusState;
+  note: string;
+  chainControlsDisabled: boolean;
+  lookupDisabled: boolean;
+  placeholderText: string;
+}
+
 export interface IbcLink {
   sourceChainName: string;
   sourceChainId: string;
@@ -153,6 +165,39 @@ export interface ClientStateResponse {
 }
 
 const DEFAULT_DIRECT_REST_BASE_URL = 'https://rest.cosmos.directory';
+
+export function getChainMetadataFeedback(state: ChainMetadataState): ChainMetadataFeedback {
+  if (state === 'loading') {
+    return {
+      statusMessage: 'Loading chains',
+      statusState: 'busy',
+      note: 'Loading chain metadata from Lazy-LB',
+      chainControlsDisabled: true,
+      lookupDisabled: true,
+      placeholderText: 'Loading chains...',
+    };
+  }
+
+  if (state === 'fallback') {
+    return {
+      statusMessage: 'Limited chain list',
+      statusState: 'error',
+      note: 'Chain metadata unavailable; using limited fallback chains',
+      chainControlsDisabled: false,
+      lookupDisabled: false,
+      placeholderText: '',
+    };
+  }
+
+  return {
+    statusMessage: 'Ready',
+    statusState: 'idle',
+    note: '',
+    chainControlsDisabled: false,
+    lookupDisabled: false,
+    placeholderText: '',
+  };
+}
 
 export function validateChannelId(channelId: string): void {
   if (!/^channel-\d+$/.test(channelId.trim())) {
