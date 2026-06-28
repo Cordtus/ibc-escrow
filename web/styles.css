@@ -180,12 +180,6 @@ label span {
   text-transform: uppercase;
 }
 
-.field-note {
-  color: var(--muted);
-  font: 0.7rem / 1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-  overflow-wrap: anywhere;
-}
-
 input,
 select {
   width: 100%;
@@ -237,7 +231,6 @@ select:focus {
 .primary-button,
 .secondary-button,
 .small-button,
-.preset-list button,
 .history-button {
   min-height: 38px;
   border: 1px solid var(--line-bright);
@@ -256,24 +249,21 @@ select:focus {
 
 .secondary-button:hover,
 .small-button:hover,
-.preset-list button:hover,
 .history-button:hover {
   border-color: var(--cyan);
   color: var(--cyan);
 }
 
 .side-panel {
-  min-height: 294px;
+  min-height: 0;
 }
 
-.preset-list,
 .history-list {
   display: grid;
   gap: 8px;
   padding: 12px 14px;
 }
 
-.preset-list button,
 .history-button {
   width: 100%;
   text-align: left;

@@ -34,15 +34,15 @@
           <div class="field-grid">
             <label>
               <span>Chain</span>
-              <input
+              <select
                 id="chain-name"
                 name="chain"
-                list="chain-options"
-                autocomplete="off"
-                spellcheck="false"
                 required
-              />
-              <small id="chain-summary-status" class="field-note">Loading registry chains</small>
+              >
+                <option value="cosmoshub">cosmoshub</option>
+                <option value="osmosis">osmosis</option>
+                <option value="noble">noble</option>
+              </select>
             </label>
             <label>
               <span>Channel</span>
@@ -93,28 +93,10 @@
             </div>
           </div>
 
-          <datalist id="chain-options">
-            <option value="cosmoshub"></option>
-            <option value="osmosis"></option>
-            <option value="neutron"></option>
-            <option value="noble"></option>
-            <option value="juno"></option>
-            <option value="stargaze"></option>
-            <option value="stride"></option>
-          </datalist>
         </form>
 
         <aside class="panel side-panel">
           <div class="panel-title">
-            <span>Presets</span>
-            <span class="panel-rule"></span>
-          </div>
-          <div class="preset-list">
-            <button type="button" data-preset="cosmoshub:channel-141">cosmoshub channel-141</button>
-            <button type="button" data-preset="osmosis:channel-0">osmosis channel-0</button>
-            <button type="button" data-preset="noble:channel-4">noble channel-4</button>
-          </div>
-          <div class="panel-title compact">
             <span>Recent</span>
             <span class="panel-rule"></span>
           </div>
