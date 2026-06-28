@@ -49,8 +49,9 @@ Open `web/index.html` locally, or use the GitHub Pages deployment from this repo
 - escrow address lookup by chain, port, and channel
 - escrow balance lookup through paginated bank balance requests
 - optional channel, connection, and client-state lookup sequence
+- registry-backed chain selection populated from the hosted Lazy-LB chain summary API
 - hosted Lazy-LB routing through `/lb/{chain}/{rest-path}` with no user-entered service URL
-- direct REST fallback through `https://rest.cosmos.directory/{chain}`
+- direct REST fallback through `https://rest.cosmos.directory/{chain}`, or an explicit chain-specific REST endpoint entered in the UI
 
 ### Terminal UI
 ```bash
@@ -151,7 +152,10 @@ yarn format             # Biome formatting
 The public web app is served at `https://ibc-escrow.cac-group.io/`. Caddy serves
 the static `web/` assets from `/srv/ibc-escrow` and reverse proxies same-origin
 `/lb/*` requests to the lazy-lb service in the `ibc-escrow` LXC container on
-`10.70.48.173:3000`.
+`10.70.48.173:3000`. It also exposes the read-only `/api/chains-summary`
+metadata endpoint for chain selection. Chain registry metadata is used for
+discovery and endpoint coverage, while escrow addresses, balances, and channel
+details are always fetched from live chain REST responses.
 
 GitHub Pages is deployed by `.github/workflows/pages.yml` on pushes to `main`.
 The workflow installs dependencies with Yarn, runs `yarn build:web`, and publishes

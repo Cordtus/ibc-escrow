@@ -30,6 +30,24 @@ export interface BalanceRow {
   amount: string;
 }
 
+export interface ChainSummary {
+  name: string;
+  chainId: string;
+  bech32Prefix: string;
+  endpointCount: number;
+  rpcCount: number;
+  restCount: number;
+}
+
+interface ChainSummaryResponseItem {
+  name?: string;
+  chainId?: string;
+  bech32Prefix?: string;
+  endpointCount?: number;
+  rpcCount?: number;
+  restCount?: number;
+}
+
 export interface BalancesResponse {
   balances?: Array<{
     denom?: string;
@@ -148,6 +166,27 @@ export function getNextBalancePageKey(response: BalancesResponse): string | unde
   return response.pagination?.next_key || undefined;
 }
 
+export function normalizeChainSummaries(response: unknown): ChainSummary[] {
+  if (!Array.isArray(response)) {
+    return [];
+  }
+
+  return response
+    .filter((item): item is ChainSummaryResponseItem => {
+      const candidate = item as ChainSummaryResponseItem;
+      return Boolean(candidate.name?.trim() && candidate.chainId?.trim());
+    })
+    .map((item) => ({
+      name: item.name?.trim() as string,
+      chainId: item.chainId?.trim() as string,
+      bech32Prefix: item.bech32Prefix?.trim() || '',
+      endpointCount: item.endpointCount || 0,
+      rpcCount: item.rpcCount || 0,
+      restCount: item.restCount || 0,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function normalizeBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, '');
 }
@@ -185,7 +224,15 @@ export function buildLookupUrl(options: LookupUrlOptions, requestPath: string): 
     };
   }
 
-  const directBaseUrl = normalizeBaseUrl(options.directRestBaseUrl || DEFAULT_DIRECT_REST_BASE_URL);
+  const explicitDirectBaseUrl = normalizeBaseUrl(options.directRestBaseUrl || '');
+  if (explicitDirectBaseUrl) {
+    return {
+      source,
+      url: `${explicitDirectBaseUrl}/${normalizedPath}`,
+    };
+  }
+
+  const directBaseUrl = normalizeBaseUrl(DEFAULT_DIRECT_REST_BASE_URL);
   return {
     source,
     url: `${directBaseUrl}/${encodeURIComponent(chainName)}/${normalizedPath}`,

@@ -10,6 +10,7 @@ import {
   buildLookupUrl,
   getNextBalancePageKey,
   normalizeBalances,
+  normalizeChainSummaries,
   resolveRequestSource,
 } from './lookup.ts';
 
@@ -71,6 +72,21 @@ describe('web lookup helpers', () => {
       buildLookupUrl(
         {
           chainName: 'cosmoshub',
+          endpointMode: 'direct-rest',
+          directRestBaseUrl: 'https://lcd.example.com/cosmoshub/',
+        },
+        path
+      ),
+      {
+        source: 'direct-rest',
+        url: 'https://lcd.example.com/cosmoshub/ibc/apps/transfer/v1/channels/channel-141/ports/transfer/escrow_address',
+      }
+    );
+
+    assert.deepEqual(
+      buildLookupUrl(
+        {
+          chainName: 'cosmoshub',
           endpointMode: 'lazy-lb',
           lazyLbBaseUrl: 'https://lb.example.com/',
         },
@@ -96,6 +112,52 @@ describe('web lookup helpers', () => {
       }),
       'lazy-lb'
     );
+  });
+
+  it('normalizes chain-registry summaries for selection', () => {
+    assert.deepEqual(
+      normalizeChainSummaries([
+        {
+          name: 'osmosis',
+          chainId: 'osmosis-1',
+          bech32Prefix: 'osmo',
+          endpointCount: 12,
+          rpcCount: 6,
+          restCount: 6,
+          source: 'chain-registry',
+        },
+        {
+          name: 'cosmoshub',
+          chainId: 'cosmoshub-4',
+          bech32Prefix: 'cosmos',
+          endpointCount: 63,
+          rpcCount: 34,
+          restCount: 29,
+          source: 'chain-registry',
+        },
+        { name: '', chainId: 'bad' },
+      ]),
+      [
+        {
+          name: 'cosmoshub',
+          chainId: 'cosmoshub-4',
+          bech32Prefix: 'cosmos',
+          endpointCount: 63,
+          rpcCount: 34,
+          restCount: 29,
+        },
+        {
+          name: 'osmosis',
+          chainId: 'osmosis-1',
+          bech32Prefix: 'osmo',
+          endpointCount: 12,
+          rpcCount: 6,
+          restCount: 6,
+        },
+      ]
+    );
+
+    assert.deepEqual(normalizeChainSummaries({}), []);
   });
 
   it('builds dependent channel detail requests and summary data', () => {

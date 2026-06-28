@@ -8,6 +8,7 @@ import {
   buildConnectionPath,
   buildEscrowAddressPath,
   buildLookupUrl,
+  type ChainSummary,
   type ChannelDetails,
   type ChannelResponse,
   type ClientStateResponse,
@@ -18,6 +19,8 @@ import {
   getNextBalancePageKey,
   type LookupUrlOptions,
   normalizeBalances,
+  normalizeBaseUrl,
+  normalizeChainSummaries,
 } from './lookup.js';
 
 interface AppSettings {
@@ -26,6 +29,7 @@ interface AppSettings {
   portId: string;
   endpointMode: EndpointMode;
   lazyLbBaseUrl: string;
+  directRestBaseUrl: string;
   includeDetails: boolean;
 }
 
@@ -45,6 +49,32 @@ interface HistoryEntry {
 const STORAGE_KEY = 'ibc-escrow-web-settings';
 const HISTORY_KEY = 'ibc-escrow-web-history';
 const HOSTED_LAZY_LB_BASE_URL = 'https://ibc-escrow.cac-group.io';
+const FALLBACK_CHAINS: ChainSummary[] = [
+  {
+    name: 'cosmoshub',
+    chainId: 'cosmoshub-4',
+    bech32Prefix: 'cosmos',
+    endpointCount: 0,
+    rpcCount: 0,
+    restCount: 0,
+  },
+  {
+    name: 'osmosis',
+    chainId: 'osmosis-1',
+    bech32Prefix: 'osmo',
+    endpointCount: 0,
+    rpcCount: 0,
+    restCount: 0,
+  },
+  {
+    name: 'noble',
+    chainId: 'noble-1',
+    bech32Prefix: 'noble',
+    endpointCount: 0,
+    rpcCount: 0,
+    restCount: 0,
+  },
+];
 
 function getDefaultLazyLbBaseUrl(): string {
   const origin = window.location.origin;
@@ -62,6 +92,7 @@ function getDefaultSettings(): AppSettings {
     portId: 'transfer',
     endpointMode: 'auto',
     lazyLbBaseUrl: getDefaultLazyLbBaseUrl(),
+    directRestBaseUrl: '',
     includeDetails: true,
   };
 }
@@ -81,6 +112,8 @@ const channelInput = byId<HTMLInputElement>('channel-id');
 const portInput = byId<HTMLInputElement>('port-id');
 const endpointModeInput = byId<HTMLSelectElement>('endpoint-mode');
 const lazyLbInput = byId<HTMLInputElement>('lazy-lb-base-url');
+const directRestField = byId<HTMLElement>('direct-rest-field');
+const directRestInput = byId<HTMLInputElement>('direct-rest-base-url');
 const includeDetailsInput = byId<HTMLInputElement>('include-details');
 const submitButton = byId<HTMLButtonElement>('lookup-button');
 const resetButton = byId<HTMLButtonElement>('reset-button');
@@ -96,6 +129,8 @@ const detailBody = byId<HTMLElement>('detail-body');
 const tracePanel = byId<HTMLElement>('trace-panel');
 const traceBody = byId<HTMLElement>('trace-body');
 const historyBody = byId<HTMLElement>('history-body');
+const chainOptions = byId<HTMLDataListElement>('chain-options');
+const chainSummaryStatus = byId<HTMLElement>('chain-summary-status');
 
 function loadSettings(): AppSettings {
   const defaults = getDefaultSettings();
@@ -122,6 +157,7 @@ function readSettings(): AppSettings {
     portId: portInput.value.trim() || 'transfer',
     endpointMode: endpointModeInput.value as EndpointMode,
     lazyLbBaseUrl: lazyLbInput.value.trim(),
+    directRestBaseUrl: directRestInput.value.trim(),
     includeDetails: includeDetailsInput.checked,
   };
 }
@@ -132,7 +168,9 @@ function applySettings(settings: AppSettings): void {
   portInput.value = settings.portId;
   endpointModeInput.value = settings.endpointMode;
   lazyLbInput.value = settings.lazyLbBaseUrl;
+  directRestInput.value = settings.directRestBaseUrl;
   includeDetailsInput.checked = settings.includeDetails;
+  updateEndpointFields();
 }
 
 function setStatus(message: string, state: 'idle' | 'busy' | 'ok' | 'error' = 'idle'): void {
@@ -151,7 +189,23 @@ function buildLookupOptions(settings: AppSettings): LookupUrlOptions {
     chainName: settings.chainName,
     endpointMode: settings.endpointMode,
     lazyLbBaseUrl: settings.lazyLbBaseUrl || getDefaultLazyLbBaseUrl(),
+    directRestBaseUrl: settings.directRestBaseUrl,
   };
+}
+
+function getDefaultDirectRestBaseUrl(): string {
+  return `https://rest.cosmos.directory/${encodeURIComponent(chainInput.value.trim() || 'cosmoshub')}`;
+}
+
+function updateEndpointFields(): void {
+  const directRestSelected = endpointModeInput.value === 'direct-rest';
+  directRestField.hidden = !directRestSelected;
+  directRestInput.placeholder = getDefaultDirectRestBaseUrl();
+}
+
+function buildServiceUrl(path: string): string {
+  const baseUrl = normalizeBaseUrl(lazyLbInput.value || getDefaultLazyLbBaseUrl());
+  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 async function fetchJson(url: string): Promise<unknown> {
@@ -222,6 +276,33 @@ function appendRequest(parent: HTMLElement, label: string, url: string): void {
 
   item.append(name, link);
   parent.append(item);
+}
+
+function renderChainOptions(chains: ChainSummary[]): void {
+  clearNode(chainOptions);
+
+  for (const chain of chains) {
+    const option = document.createElement('option');
+    option.value = chain.name;
+    option.label = `${chain.chainId} · REST ${chain.restCount} · RPC ${chain.rpcCount}`;
+    chainOptions.append(option);
+  }
+}
+
+async function loadChainSummaries(): Promise<void> {
+  try {
+    const data = await fetchJson(buildServiceUrl('/api/chains-summary'));
+    const chains = normalizeChainSummaries(data);
+    if (chains.length === 0) {
+      throw new Error('No chain summaries returned');
+    }
+
+    renderChainOptions(chains);
+    chainSummaryStatus.textContent = `${chains.length} registry chains`;
+  } catch {
+    renderChainOptions(FALLBACK_CHAINS);
+    chainSummaryStatus.textContent = 'Registry list unavailable';
+  }
 }
 
 function renderEscrowResult(settings: AppSettings, escrowAddress: string, source: string): void {
@@ -358,6 +439,7 @@ function renderHistory(): void {
       chainInput.value = item.chainName;
       channelInput.value = item.channelId;
       portInput.value = item.portId;
+      updateEndpointFields();
       setStatus(`Loaded ${item.chainName} ${item.channelId}`, 'idle');
     });
     historyBody.append(button);
@@ -453,6 +535,9 @@ resetButton.addEventListener('click', () => {
   setStatus('Ready', 'idle');
 });
 
+endpointModeInput.addEventListener('change', updateEndpointFields);
+chainInput.addEventListener('input', updateEndpointFields);
+
 document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((button) => {
   button.addEventListener('click', () => {
     const [chainName, channelId] = (button.dataset.preset || '').split(':');
@@ -460,10 +545,12 @@ document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((button) =
     chainInput.value = chainName;
     channelInput.value = channelId;
     portInput.value = 'transfer';
+    updateEndpointFields();
     setStatus(`Loaded ${chainName} ${channelId}`, 'idle');
   });
 });
 
 applySettings(loadSettings());
+void loadChainSummaries();
 renderHistory();
 setStatus('Ready', 'idle');
