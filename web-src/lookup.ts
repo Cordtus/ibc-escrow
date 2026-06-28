@@ -39,6 +39,59 @@ export interface ChainSummary {
   restCount: number;
 }
 
+export interface IbcLink {
+  sourceChainName: string;
+  sourceChainId: string;
+  destinationChainName: string;
+  destinationChainId: string;
+  channelId: string;
+  portId: string;
+  counterpartyChannelId: string;
+  counterpartyPortId: string;
+  clientId: string;
+  counterpartyClientId: string;
+  connectionId: string;
+  counterpartyConnectionId: string;
+  ordering: string;
+  version: string;
+  tags: {
+    status?: string;
+    preferred?: boolean;
+    dex?: string;
+    properties?: string;
+  };
+  sourceFile: string;
+}
+
+export interface IbcLinksResponse {
+  source: {
+    name: string;
+    chainId: string;
+  };
+  destination: {
+    name: string;
+    chainId: string;
+  };
+  links: IbcLink[];
+}
+
+export interface LookupRouteInput {
+  sourceChainName: string;
+  destinationChainName: string;
+  channelId?: string;
+  portId?: string;
+}
+
+export interface ResolvedLookupRoute {
+  sourceChainName: string;
+  destinationChainName: string;
+  channelId: string;
+  portId: string;
+  counterpartyChannelId: string;
+  counterpartyPortId: string;
+  source: 'registry' | 'manual';
+}
+
 interface ChainSummaryResponseItem {
   name?: string;
   chainId?: string;
@@ -56,6 +109,13 @@ export interface BalancesResponse {
   pagination?: {
     next_key?: string | null;
     total?: string;
+  };
+}
+
+export interface SupplyResponse {
+  amount?: {
+    denom?: string;
+    amount?: string;
   };
 }
 
@@ -153,6 +213,16 @@ export function buildBalancesPath(address: string, paginationKey?: string): stri
   return `${path}?${query.toString()}`;
 }
 
+export function buildSupplyByDenomPath(denom: string): string {
+  const cleanDenom = denom.trim();
+  if (!cleanDenom) {
+    throw new Error('Denom is required');
+  }
+
+  const query = new URLSearchParams({ denom: cleanDenom });
+  return `/cosmos/bank/v1beta1/supply/by_denom?${query.toString()}`;
+}
+
 export function normalizeBalances(response: BalancesResponse): BalanceRow[] {
   return (response.balances || [])
     .filter((balance) => balance.denom && balance.amount)
@@ -160,6 +230,10 @@ export function normalizeBalances(response: BalancesResponse): BalanceRow[] {
       denom: balance.denom as string,
       amount: balance.amount as string,
     }));
+}
+
+export function normalizeSupplyAmount(response: SupplyResponse): string {
+  return response.amount?.amount || '0';
 }
 
 export function getNextBalancePageKey(response: BalancesResponse): string | undefined {
@@ -185,6 +259,104 @@ export function normalizeChainSummaries(response: unknown): ChainSummary[] {
       restCount: item.restCount || 0,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function normalizeChainSelection(input: string, chains: ChainSummary[]): string {
+  const normalizedInput = input.trim().toLowerCase();
+  const chain = chains.find(
+    (candidate) =>
+      candidate.name.toLowerCase() === normalizedInput ||
+      candidate.chainId.toLowerCase() === normalizedInput
+  );
+
+  if (!chain) {
+    throw new Error(`Unknown chain: ${input}`);
+  }
+
+  return chain.name;
+}
+
+export function resolveLookupRoute(
+  input: LookupRouteInput,
+  linksResponse?: IbcLinksResponse
+): ResolvedLookupRoute {
+  const manualChannelId = input.channelId?.trim() || '';
+  const portId = input.portId?.trim() || 'transfer';
+
+  if (manualChannelId) {
+    validateChannelId(manualChannelId);
+    validatePortId(portId);
+    return {
+      sourceChainName: input.sourceChainName,
+      destinationChainName: input.destinationChainName,
+      channelId: manualChannelId,
+      portId,
+      counterpartyChannelId: '',
+      counterpartyPortId: '',
+      source: 'manual',
+    };
+  }
+
+  const link = linksResponse?.links.find(
+    (candidate) => candidate.portId === 'transfer' && candidate.counterpartyPortId === 'transfer'
+  );
+  if (!link) {
+    throw new Error(
+      `No transfer IBC channel link found for ${input.sourceChainName} to ${input.destinationChainName}`
+    );
+  }
+
+  return {
+    sourceChainName: link.sourceChainName,
+    destinationChainName: link.destinationChainName,
+    channelId: link.channelId,
+    portId: link.portId || 'transfer',
+    counterpartyChannelId: link.counterpartyChannelId,
+    counterpartyPortId: link.counterpartyPortId,
+    source: 'registry',
+  };
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
+}
+
+export async function buildIbcDenom(
+  portId: string,
+  channelId: string,
+  baseDenom: string
+): Promise<string> {
+  validatePortId(portId);
+  validateChannelId(channelId);
+  const cleanBaseDenom = baseDenom.trim();
+  if (!cleanBaseDenom) {
+    throw new Error('Base denom is required');
+  }
+
+  const cryptoApi = globalThis.crypto?.subtle;
+  if (!cryptoApi) {
+    throw new Error('Web Crypto API is required to hash IBC denoms');
+  }
+
+  const payload = new TextEncoder().encode(
+    `${portId.trim()}/${channelId.trim()}/${cleanBaseDenom}`
+  );
+  const digest = await cryptoApi.digest('SHA-256', payload);
+  return `ibc/${bytesToHex(new Uint8Array(digest))}`;
+}
+
+export async function buildDestinationIbcDenom(
+  route: ResolvedLookupRoute,
+  baseDenom: string
+): Promise<string> {
+  if (!route.counterpartyPortId || !route.counterpartyChannelId) {
+    throw new Error('Counterparty channel is required to compare destination supply');
+  }
+
+  return buildIbcDenom(route.counterpartyPortId, route.counterpartyChannelId, baseDenom);
 }
 
 export function normalizeBaseUrl(url: string): string {

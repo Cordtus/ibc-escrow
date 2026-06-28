@@ -46,12 +46,15 @@ yarn build:web
 ```
 
 Open `web/index.html` locally, or use the GitHub Pages deployment from this repository. The web UI supports:
-- escrow address lookup by chain, port, and channel
+- escrow address lookup by source chain and destination chain
+- automatic IBC channel resolution through the hosted Lazy-LB IBC-link API
+- optional channel and port override for manual lookups
 - escrow balance lookup through paginated bank balance requests
+- destination-chain voucher supply comparison for escrow balances
 - optional channel, connection, and client-state lookup sequence
 - registry-backed chain selection populated from the hosted Lazy-LB chain summary API
 - hosted Lazy-LB routing through `/lb/{chain}/{rest-path}` with no user-entered service URL
-- direct REST fallback through `https://rest.cosmos.directory/{chain}`, or an explicit chain-specific REST endpoint entered in the UI
+- direct REST fallback through `https://rest.cosmos.directory/{chain}`, or explicit source and destination REST endpoints entered in the UI
 
 ### Terminal UI
 ```bash

@@ -33,31 +33,28 @@
 
           <div class="field-grid">
             <label>
-              <span>Chain</span>
+              <span>Source chain</span>
               <select
-                id="chain-name"
-                name="chain"
+                id="source-chain-name"
+                name="sourceChain"
                 required
               >
-                <option value="cosmoshub">cosmoshub</option>
-                <option value="osmosis">osmosis</option>
-                <option value="noble">noble</option>
+                <option value="cosmoshub">cosmoshub cosmoshub-4</option>
+                <option value="osmosis">osmosis osmosis-1</option>
+                <option value="noble">noble noble-1</option>
               </select>
             </label>
             <label>
-              <span>Channel</span>
-              <input
-                id="channel-id"
-                name="channel"
-                pattern="channel-[0-9]+"
-                autocomplete="off"
-                spellcheck="false"
+              <span>Destination chain</span>
+              <select
+                id="destination-chain-name"
+                name="destinationChain"
                 required
-              />
-            </label>
-            <label>
-              <span>Port</span>
-              <input id="port-id" name="port" autocomplete="off" spellcheck="false" required />
+              >
+                <option value="osmosis">osmosis osmosis-1</option>
+                <option value="cosmoshub">cosmoshub cosmoshub-4</option>
+                <option value="noble">noble noble-1</option>
+              </select>
             </label>
             <label>
               <span>Endpoint</span>
@@ -69,18 +66,47 @@
             </label>
           </div>
 
+          <div class="field-grid secondary-grid">
+            <label>
+              <span>Channel override</span>
+              <input
+                id="channel-id"
+                name="channel"
+                pattern="channel-[0-9]+"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+            <label>
+              <span>Port</span>
+              <input id="port-id" name="port" autocomplete="off" spellcheck="false" />
+            </label>
+          </div>
+
           <input id="lazy-lb-base-url" name="lazyLbBaseUrl" type="hidden" />
 
-          <label id="direct-rest-field" class="wide-field" hidden>
-            <span>Direct REST endpoint</span>
-            <input
-              id="direct-rest-base-url"
-              name="directRestBaseUrl"
-              type="url"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </label>
+          <div id="direct-rest-field" class="field-grid direct-grid" hidden>
+            <label>
+              <span>Source REST endpoint</span>
+              <input
+                id="source-direct-rest-base-url"
+                name="sourceDirectRestBaseUrl"
+                type="url"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+            <label>
+              <span>Destination REST endpoint</span>
+              <input
+                id="destination-direct-rest-base-url"
+                name="destinationDirectRestBaseUrl"
+                type="url"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+          </div>
 
           <div class="inline-options">
             <label class="check-row">
@@ -127,6 +153,14 @@
             <span class="panel-rule"></span>
           </div>
           <div id="balances-body" class="balance-list"></div>
+        </article>
+
+        <article id="comparison-panel" class="panel trace-panel" hidden>
+          <div class="panel-title">
+            <span id="comparison-title">Destination Supply</span>
+            <span class="panel-rule"></span>
+          </div>
+          <div id="comparison-body" class="comparison-list"></div>
         </article>
 
         <article id="trace-panel" class="panel trace-panel" hidden>

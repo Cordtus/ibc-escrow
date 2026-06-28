@@ -6,8 +6,10 @@ import {
   buildChannelPath,
   buildClientStatePath,
   buildConnectionPath,
+  buildDestinationIbcDenom,
   buildEscrowAddressPath,
   buildLookupUrl,
+  buildSupplyByDenomPath,
   type ChainSummary,
   type ChannelDetails,
   type ChannelResponse,
@@ -17,19 +19,27 @@ import {
   extractClientId,
   extractConnectionId,
   getNextBalancePageKey,
+  type IbcLinksResponse,
   type LookupUrlOptions,
   normalizeBalances,
   normalizeBaseUrl,
+  normalizeChainSelection,
   normalizeChainSummaries,
+  normalizeSupplyAmount,
+  type ResolvedLookupRoute,
+  resolveLookupRoute,
+  type SupplyResponse,
 } from './lookup.js';
 
 interface AppSettings {
-  chainName: string;
+  sourceChainName: string;
+  destinationChainName: string;
   channelId: string;
   portId: string;
   endpointMode: EndpointMode;
   lazyLbBaseUrl: string;
-  directRestBaseUrl: string;
+  sourceDirectRestBaseUrl: string;
+  destinationDirectRestBaseUrl: string;
   includeDetails: boolean;
 }
 
@@ -38,7 +48,8 @@ interface EscrowAddressResponse {
 }
 
 interface HistoryEntry {
-  chainName: string;
+  sourceChainName: string;
+  destinationChainName: string;
   channelId: string;
   portId: string;
   escrowAddress: string;
@@ -46,9 +57,20 @@ interface HistoryEntry {
   timestamp: number;
 }
 
+interface SupplyComparisonRow {
+  denom: string;
+  amount: string;
+  destinationDenom: string;
+  destinationSupply: string;
+  delta: string;
+  error?: string;
+}
+
 const STORAGE_KEY = 'ibc-escrow-web-settings';
 const HISTORY_KEY = 'ibc-escrow-web-history';
 const HOSTED_LAZY_LB_BASE_URL = 'https://ibc-escrow.cac-group.io';
+const MAX_SUPPLY_COMPARISONS = 25;
+let chainSummaries: ChainSummary[] = [];
 const FALLBACK_CHAINS: ChainSummary[] = [
   {
     name: 'cosmoshub',
@@ -87,12 +109,14 @@ function getDefaultLazyLbBaseUrl(): string {
 
 function getDefaultSettings(): AppSettings {
   return {
-    chainName: 'cosmoshub',
-    channelId: 'channel-141',
+    sourceChainName: 'cosmoshub',
+    destinationChainName: 'osmosis',
+    channelId: '',
     portId: 'transfer',
     endpointMode: 'auto',
     lazyLbBaseUrl: getDefaultLazyLbBaseUrl(),
-    directRestBaseUrl: '',
+    sourceDirectRestBaseUrl: '',
+    destinationDirectRestBaseUrl: '',
     includeDetails: true,
   };
 }
@@ -107,13 +131,15 @@ function byId<T extends HTMLElement>(id: string): T {
 }
 
 const form = byId<HTMLFormElement>('lookup-form');
-const chainInput = byId<HTMLSelectElement>('chain-name');
+const sourceChainInput = byId<HTMLSelectElement>('source-chain-name');
+const destinationChainInput = byId<HTMLSelectElement>('destination-chain-name');
 const channelInput = byId<HTMLInputElement>('channel-id');
 const portInput = byId<HTMLInputElement>('port-id');
 const endpointModeInput = byId<HTMLSelectElement>('endpoint-mode');
 const lazyLbInput = byId<HTMLInputElement>('lazy-lb-base-url');
 const directRestField = byId<HTMLElement>('direct-rest-field');
-const directRestInput = byId<HTMLInputElement>('direct-rest-base-url');
+const sourceDirectRestInput = byId<HTMLInputElement>('source-direct-rest-base-url');
+const destinationDirectRestInput = byId<HTMLInputElement>('destination-direct-rest-base-url');
 const includeDetailsInput = byId<HTMLInputElement>('include-details');
 const submitButton = byId<HTMLButtonElement>('lookup-button');
 const resetButton = byId<HTMLButtonElement>('reset-button');
@@ -124,6 +150,9 @@ const resultBody = byId<HTMLElement>('result-body');
 const balancesPanel = byId<HTMLElement>('balances-panel');
 const balancesTitle = byId<HTMLElement>('balances-title');
 const balancesBody = byId<HTMLElement>('balances-body');
+const comparisonPanel = byId<HTMLElement>('comparison-panel');
+const comparisonTitle = byId<HTMLElement>('comparison-title');
+const comparisonBody = byId<HTMLElement>('comparison-body');
 const detailPanel = byId<HTMLElement>('detail-panel');
 const detailBody = byId<HTMLElement>('detail-body');
 const tracePanel = byId<HTMLElement>('trace-panel');
@@ -133,11 +162,22 @@ const historyBody = byId<HTMLElement>('history-body');
 function loadSettings(): AppSettings {
   const defaults = getDefaultSettings();
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') as Partial<AppSettings>;
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') as Partial<
+      AppSettings & {
+        chainName: string;
+        directRestBaseUrl: string;
+      }
+    >;
     return {
       ...defaults,
       ...parsed,
+      sourceChainName:
+        parsed.sourceChainName?.trim() || parsed.chainName?.trim() || defaults.sourceChainName,
+      destinationChainName: parsed.destinationChainName?.trim() || defaults.destinationChainName,
       lazyLbBaseUrl: parsed.lazyLbBaseUrl?.trim() || defaults.lazyLbBaseUrl,
+      sourceDirectRestBaseUrl:
+        parsed.sourceDirectRestBaseUrl?.trim() || parsed.directRestBaseUrl?.trim() || '',
+      destinationDirectRestBaseUrl: parsed.destinationDirectRestBaseUrl?.trim() || '',
     };
   } catch {
     return defaults;
@@ -149,24 +189,29 @@ function saveSettings(settings: AppSettings): void {
 }
 
 function readSettings(): AppSettings {
+  const chains = chainSummaries.length > 0 ? chainSummaries : FALLBACK_CHAINS;
   return {
-    chainName: chainInput.value.trim(),
+    sourceChainName: normalizeChainSelection(sourceChainInput.value.trim(), chains),
+    destinationChainName: normalizeChainSelection(destinationChainInput.value.trim(), chains),
     channelId: channelInput.value.trim(),
     portId: portInput.value.trim() || 'transfer',
     endpointMode: endpointModeInput.value as EndpointMode,
     lazyLbBaseUrl: lazyLbInput.value.trim(),
-    directRestBaseUrl: directRestInput.value.trim(),
+    sourceDirectRestBaseUrl: sourceDirectRestInput.value.trim(),
+    destinationDirectRestBaseUrl: destinationDirectRestInput.value.trim(),
     includeDetails: includeDetailsInput.checked,
   };
 }
 
 function applySettings(settings: AppSettings): void {
-  chainInput.value = settings.chainName;
+  sourceChainInput.value = settings.sourceChainName;
+  destinationChainInput.value = settings.destinationChainName;
   channelInput.value = settings.channelId;
   portInput.value = settings.portId;
   endpointModeInput.value = settings.endpointMode;
   lazyLbInput.value = settings.lazyLbBaseUrl;
-  directRestInput.value = settings.directRestBaseUrl;
+  sourceDirectRestInput.value = settings.sourceDirectRestBaseUrl;
+  destinationDirectRestInput.value = settings.destinationDirectRestBaseUrl;
   includeDetailsInput.checked = settings.includeDetails;
   updateEndpointFields();
 }
@@ -182,23 +227,33 @@ function setBusy(isBusy: boolean): void {
   form.toggleAttribute('aria-busy', isBusy);
 }
 
-function buildLookupOptions(settings: AppSettings): LookupUrlOptions {
+function buildLookupOptions(
+  settings: AppSettings,
+  chainName: string,
+  side: 'source' | 'destination'
+): LookupUrlOptions {
   return {
-    chainName: settings.chainName,
+    chainName,
     endpointMode: settings.endpointMode,
     lazyLbBaseUrl: settings.lazyLbBaseUrl || getDefaultLazyLbBaseUrl(),
-    directRestBaseUrl: settings.directRestBaseUrl,
+    directRestBaseUrl:
+      side === 'source' ? settings.sourceDirectRestBaseUrl : settings.destinationDirectRestBaseUrl,
   };
 }
 
-function getDefaultDirectRestBaseUrl(): string {
-  return `https://rest.cosmos.directory/${encodeURIComponent(chainInput.value.trim() || 'cosmoshub')}`;
+function getDefaultDirectRestBaseUrl(chainName: string): string {
+  return `https://rest.cosmos.directory/${encodeURIComponent(chainName.trim() || 'cosmoshub')}`;
 }
 
 function updateEndpointFields(): void {
   const directRestSelected = endpointModeInput.value === 'direct-rest';
   directRestField.hidden = !directRestSelected;
-  directRestInput.placeholder = getDefaultDirectRestBaseUrl();
+  sourceDirectRestInput.placeholder = getDefaultDirectRestBaseUrl(
+    sourceChainInput.value || 'cosmoshub'
+  );
+  destinationDirectRestInput.placeholder = getDefaultDirectRestBaseUrl(
+    destinationChainInput.value || 'osmosis'
+  );
 }
 
 function buildServiceUrl(path: string): string {
@@ -276,23 +331,42 @@ function appendRequest(parent: HTMLElement, label: string, url: string): void {
   parent.append(item);
 }
 
-function renderChainOptions(chains: ChainSummary[]): void {
-  const selectedChain = chainInput.value;
-  clearNode(chainInput);
+function appendChainOption(select: HTMLSelectElement, chain: ChainSummary): void {
+  const option = document.createElement('option');
+  option.value = chain.name;
+  option.textContent = `${chain.name} ${chain.chainId}`.trim();
+  option.dataset.chainId = chain.chainId;
+  option.dataset.restCount = String(chain.restCount);
+  option.dataset.rpcCount = String(chain.rpcCount);
+  select.append(option);
+}
+
+function renderChainSelect(
+  select: HTMLSelectElement,
+  chains: ChainSummary[],
+  fallback: string
+): void {
+  const selectedChain = select.value || fallback;
+  clearNode(select);
 
   for (const chain of chains) {
-    const option = document.createElement('option');
-    option.value = chain.name;
-    option.textContent = chain.name;
-    option.dataset.chainId = chain.chainId;
-    option.dataset.restCount = String(chain.restCount);
-    option.dataset.rpcCount = String(chain.rpcCount);
-    chainInput.append(option);
+    appendChainOption(select, chain);
   }
 
-  if (selectedChain && chains.some((chain) => chain.name === selectedChain)) {
-    chainInput.value = selectedChain;
+  if (!chains.some((chain) => chain.name === selectedChain)) {
+    const option = document.createElement('option');
+    option.value = selectedChain;
+    option.textContent = selectedChain;
+    select.prepend(option);
   }
+
+  select.value = selectedChain;
+}
+
+function renderChainOptions(chains: ChainSummary[]): void {
+  renderChainSelect(sourceChainInput, chains, 'cosmoshub');
+  renderChainSelect(destinationChainInput, chains, 'osmosis');
+  updateEndpointFields();
 }
 
 async function loadChainSummaries(): Promise<void> {
@@ -303,16 +377,31 @@ async function loadChainSummaries(): Promise<void> {
       throw new Error('No chain summaries returned');
     }
 
+    chainSummaries = chains;
     renderChainOptions(chains);
   } catch {
+    chainSummaries = FALLBACK_CHAINS;
     renderChainOptions(FALLBACK_CHAINS);
   }
 }
 
-function renderEscrowResult(settings: AppSettings, escrowAddress: string, source: string): void {
+function renderEscrowResult(
+  route: ResolvedLookupRoute,
+  escrowAddress: string,
+  source: string
+): void {
   clearNode(resultBody);
-  appendKeyValue(resultBody, 'Chain', settings.chainName);
-  appendKeyValue(resultBody, 'Port / channel', `${settings.portId}/${settings.channelId}`);
+  appendKeyValue(resultBody, 'Source chain', route.sourceChainName);
+  appendKeyValue(resultBody, 'Destination chain', route.destinationChainName);
+  appendKeyValue(resultBody, 'Port / channel', `${route.portId}/${route.channelId}`);
+  if (route.counterpartyChannelId) {
+    appendKeyValue(
+      resultBody,
+      'Counterparty channel',
+      `${route.counterpartyPortId}/${route.counterpartyChannelId}`
+    );
+  }
+  appendKeyValue(resultBody, 'Route source', route.source);
   appendKeyValue(resultBody, 'Escrow address', escrowAddress, true);
   appendKeyValue(resultBody, 'Source', source);
   resultPanel.hidden = false;
@@ -364,6 +453,64 @@ function renderBalances(balances: BalanceRow[]): void {
   balancesPanel.hidden = false;
 }
 
+function renderSupplyComparisons(rows: SupplyComparisonRow[], totalBalances: number): void {
+  clearNode(comparisonBody);
+  comparisonTitle.textContent = `Destination Supply (${rows.length})`;
+
+  if (rows.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'No escrow balances available for comparison';
+    comparisonBody.append(empty);
+    comparisonPanel.hidden = false;
+    return;
+  }
+
+  const header = document.createElement('div');
+  header.className = 'comparison-row comparison-head';
+  for (const label of ['Escrow', 'Denom', 'Supply', 'Delta']) {
+    const cell = document.createElement('span');
+    cell.textContent = label;
+    header.append(cell);
+  }
+  comparisonBody.append(header);
+
+  for (const row of rows) {
+    const item = document.createElement('div');
+    item.className = 'comparison-row';
+
+    const sourceAmount = document.createElement('span');
+    sourceAmount.className = 'comparison-amount';
+    sourceAmount.textContent = row.amount;
+
+    const denom = document.createElement('span');
+    denom.className = 'comparison-denom';
+    denom.textContent = row.destinationDenom
+      ? `${row.denom} -> ${row.destinationDenom}`
+      : row.denom;
+
+    const destinationSupply = document.createElement('span');
+    destinationSupply.className = row.error ? 'comparison-error' : 'comparison-amount';
+    destinationSupply.textContent = row.error || row.destinationSupply;
+
+    const delta = document.createElement('span');
+    delta.className = row.delta === '0' ? 'comparison-ok' : 'comparison-delta';
+    delta.textContent = row.error ? '-' : row.delta;
+
+    item.append(sourceAmount, denom, destinationSupply, delta);
+    comparisonBody.append(item);
+  }
+
+  if (totalBalances > rows.length) {
+    const capped = document.createElement('p');
+    capped.className = 'empty-state';
+    capped.textContent = `${totalBalances - rows.length} additional balances not compared`;
+    comparisonBody.append(capped);
+  }
+
+  comparisonPanel.hidden = false;
+}
+
 async function fetchAllBalances(
   options: LookupUrlOptions,
   escrowAddress: string,
@@ -393,6 +540,57 @@ async function fetchAllBalances(
   throw new Error('Balance lookup exceeded pagination limit');
 }
 
+function subtractAmounts(left: string, right: string): string {
+  try {
+    return (BigInt(left) - BigInt(right)).toString();
+  } catch {
+    return '';
+  }
+}
+
+async function fetchSupplyComparisons(
+  options: LookupUrlOptions,
+  route: ResolvedLookupRoute,
+  balances: BalanceRow[],
+  requests: Array<{ label: string; url: string }>
+): Promise<SupplyComparisonRow[]> {
+  const comparableBalances = balances
+    .filter((balance) => balance.amount !== '0')
+    .slice(0, MAX_SUPPLY_COMPARISONS);
+  const rows: SupplyComparisonRow[] = [];
+
+  for (const [index, balance] of comparableBalances.entries()) {
+    try {
+      const destinationDenom = await buildDestinationIbcDenom(route, balance.denom);
+      const supplyRequest = buildLookupUrl(options, buildSupplyByDenomPath(destinationDenom));
+      requests.push({
+        label: `supply ${index + 1}`,
+        url: supplyRequest.url,
+      });
+      const supplyData = (await fetchJson(supplyRequest.url)) as SupplyResponse;
+      const destinationSupply = normalizeSupplyAmount(supplyData);
+      rows.push({
+        denom: balance.denom,
+        amount: balance.amount,
+        destinationDenom,
+        destinationSupply,
+        delta: subtractAmounts(balance.amount, destinationSupply),
+      });
+    } catch (error) {
+      rows.push({
+        denom: balance.denom,
+        amount: balance.amount,
+        destinationDenom: '',
+        destinationSupply: '0',
+        delta: '',
+        error: error instanceof Error ? error.message : 'Supply lookup failed',
+      });
+    }
+  }
+
+  return rows;
+}
+
 function renderTrace(requests: Array<{ label: string; url: string }>): void {
   clearNode(traceBody);
   for (const request of requests) {
@@ -403,8 +601,21 @@ function renderTrace(requests: Array<{ label: string; url: string }>): void {
 
 function loadHistory(): HistoryEntry[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as HistoryEntry[];
-    return Array.isArray(parsed) ? parsed.slice(0, 6) : [];
+    const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as Array<
+      HistoryEntry & {
+        chainName?: string;
+      }
+    >;
+    return Array.isArray(parsed)
+      ? parsed
+          .map((item) => ({
+            ...item,
+            sourceChainName: item.sourceChainName || item.chainName || '',
+            destinationChainName: item.destinationChainName || '',
+          }))
+          .filter((item) => item.sourceChainName && item.channelId)
+          .slice(0, 6)
+      : [];
   } catch {
     return [];
   }
@@ -414,7 +625,8 @@ function saveHistory(entry: HistoryEntry): void {
   const history = loadHistory().filter(
     (item) =>
       !(
-        item.chainName === entry.chainName &&
+        item.sourceChainName === entry.sourceChainName &&
+        item.destinationChainName === entry.destinationChainName &&
         item.channelId === entry.channelId &&
         item.portId === entry.portId
       )
@@ -438,25 +650,68 @@ function renderHistory(): void {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'history-button';
-    button.textContent = `${item.chainName} ${item.channelId}`;
+    button.textContent = `${item.sourceChainName} -> ${item.destinationChainName || '?'} ${item.channelId}`;
     button.addEventListener('click', () => {
-      chainInput.value = item.chainName;
+      sourceChainInput.value = item.sourceChainName;
+      if (item.destinationChainName) {
+        destinationChainInput.value = item.destinationChainName;
+      }
       channelInput.value = item.channelId;
       portInput.value = item.portId;
       updateEndpointFields();
-      setStatus(`Loaded ${item.chainName} ${item.channelId}`, 'idle');
+      setStatus(`Loaded ${item.sourceChainName} ${item.channelId}`, 'idle');
     });
     historyBody.append(button);
   }
 }
 
+async function resolveRouteForLookup(
+  settings: AppSettings,
+  requests: Array<{ label: string; url: string }>
+): Promise<ResolvedLookupRoute> {
+  if (settings.channelId.trim()) {
+    return resolveLookupRoute({
+      sourceChainName: settings.sourceChainName,
+      destinationChainName: settings.destinationChainName,
+      channelId: settings.channelId,
+      portId: settings.portId,
+    });
+  }
+
+  const query = new URLSearchParams({
+    source: settings.sourceChainName,
+    destination: settings.destinationChainName,
+  });
+  const url = buildServiceUrl(`/api/ibc-links?${query.toString()}`);
+  requests.push({ label: 'ibc links', url });
+  const response = (await fetchJson(url)) as IbcLinksResponse;
+
+  return resolveLookupRoute(
+    {
+      sourceChainName: settings.sourceChainName,
+      destinationChainName: settings.destinationChainName,
+      channelId: settings.channelId,
+      portId: settings.portId,
+    },
+    response
+  );
+}
+
 async function runLookup(settings: AppSettings): Promise<void> {
-  const options = buildLookupOptions(settings);
   const requests: Array<{ label: string; url: string }> = [];
 
+  setStatus('Resolving route', 'busy');
+  const route = await resolveRouteForLookup(settings, requests);
+  const sourceOptions = buildLookupOptions(settings, route.sourceChainName, 'source');
+  const destinationOptions = buildLookupOptions(
+    settings,
+    route.destinationChainName,
+    'destination'
+  );
+
   setStatus('Querying escrow address', 'busy');
-  const escrowPath = buildEscrowAddressPath(settings.channelId, settings.portId);
-  const escrowRequest = buildLookupUrl(options, escrowPath);
+  const escrowPath = buildEscrowAddressPath(route.channelId, route.portId);
+  const escrowRequest = buildLookupUrl(sourceOptions, escrowPath);
   requests.push({ label: 'escrow', url: escrowRequest.url });
   const escrowData = (await fetchJson(escrowRequest.url)) as EscrowAddressResponse;
 
@@ -464,11 +719,12 @@ async function runLookup(settings: AppSettings): Promise<void> {
     throw new Error('Escrow address was not returned');
   }
 
-  renderEscrowResult(settings, escrowData.escrow_address, escrowRequest.source);
+  renderEscrowResult(route, escrowData.escrow_address, escrowRequest.source);
   saveHistory({
-    chainName: settings.chainName,
-    channelId: settings.channelId,
-    portId: settings.portId,
+    sourceChainName: route.sourceChainName,
+    destinationChainName: route.destinationChainName,
+    channelId: route.channelId,
+    portId: route.portId,
     escrowAddress: escrowData.escrow_address,
     source: escrowRequest.source,
     timestamp: Date.now(),
@@ -476,25 +732,29 @@ async function runLookup(settings: AppSettings): Promise<void> {
   renderHistory();
 
   setStatus('Querying escrow balances', 'busy');
-  const balances = await fetchAllBalances(options, escrowData.escrow_address, requests);
+  const balances = await fetchAllBalances(sourceOptions, escrowData.escrow_address, requests);
   renderBalances(balances);
+
+  setStatus('Comparing destination supply', 'busy');
+  const comparisons = await fetchSupplyComparisons(destinationOptions, route, balances, requests);
+  renderSupplyComparisons(comparisons, balances.filter((balance) => balance.amount !== '0').length);
 
   if (settings.includeDetails) {
     setStatus('Querying channel details', 'busy');
     const channelRequest = buildLookupUrl(
-      options,
-      buildChannelPath(settings.channelId, settings.portId)
+      sourceOptions,
+      buildChannelPath(route.channelId, route.portId)
     );
     requests.push({ label: 'channel', url: channelRequest.url });
     const channelData = (await fetchJson(channelRequest.url)) as ChannelResponse;
     const connectionId = extractConnectionId(channelData);
 
-    const connectionRequest = buildLookupUrl(options, buildConnectionPath(connectionId));
+    const connectionRequest = buildLookupUrl(sourceOptions, buildConnectionPath(connectionId));
     requests.push({ label: 'connection', url: connectionRequest.url });
     const connectionData = (await fetchJson(connectionRequest.url)) as ConnectionResponse;
     const clientId = extractClientId(connectionData);
 
-    const clientRequest = buildLookupUrl(options, buildClientStatePath(clientId));
+    const clientRequest = buildLookupUrl(sourceOptions, buildClientStatePath(clientId));
     requests.push({ label: 'client', url: clientRequest.url });
     const clientStateData = (await fetchJson(clientRequest.url)) as ClientStateResponse;
 
@@ -530,17 +790,21 @@ resetButton.addEventListener('click', () => {
   clearNode(resultBody);
   clearNode(balancesBody);
   balancesTitle.textContent = 'Balances';
+  clearNode(comparisonBody);
+  comparisonTitle.textContent = 'Destination Supply';
   clearNode(detailBody);
   clearNode(traceBody);
   resultPanel.hidden = true;
   balancesPanel.hidden = true;
+  comparisonPanel.hidden = true;
   detailPanel.hidden = true;
   tracePanel.hidden = true;
   setStatus('Ready', 'idle');
 });
 
 endpointModeInput.addEventListener('change', updateEndpointFields);
-chainInput.addEventListener('change', updateEndpointFields);
+sourceChainInput.addEventListener('change', updateEndpointFields);
+destinationChainInput.addEventListener('change', updateEndpointFields);
 
 applySettings(loadSettings());
 void loadChainSummaries();
