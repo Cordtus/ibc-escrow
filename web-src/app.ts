@@ -107,7 +107,7 @@ function byId<T extends HTMLElement>(id: string): T {
 }
 
 const form = byId<HTMLFormElement>('lookup-form');
-const chainInput = byId<HTMLInputElement>('chain-name');
+const chainInput = byId<HTMLSelectElement>('chain-name');
 const channelInput = byId<HTMLInputElement>('channel-id');
 const portInput = byId<HTMLInputElement>('port-id');
 const endpointModeInput = byId<HTMLSelectElement>('endpoint-mode');
@@ -129,8 +129,6 @@ const detailBody = byId<HTMLElement>('detail-body');
 const tracePanel = byId<HTMLElement>('trace-panel');
 const traceBody = byId<HTMLElement>('trace-body');
 const historyBody = byId<HTMLElement>('history-body');
-const chainOptions = byId<HTMLDataListElement>('chain-options');
-const chainSummaryStatus = byId<HTMLElement>('chain-summary-status');
 
 function loadSettings(): AppSettings {
   const defaults = getDefaultSettings();
@@ -279,13 +277,21 @@ function appendRequest(parent: HTMLElement, label: string, url: string): void {
 }
 
 function renderChainOptions(chains: ChainSummary[]): void {
-  clearNode(chainOptions);
+  const selectedChain = chainInput.value;
+  clearNode(chainInput);
 
   for (const chain of chains) {
     const option = document.createElement('option');
     option.value = chain.name;
-    option.label = `${chain.chainId} · REST ${chain.restCount} · RPC ${chain.rpcCount}`;
-    chainOptions.append(option);
+    option.textContent = chain.name;
+    option.dataset.chainId = chain.chainId;
+    option.dataset.restCount = String(chain.restCount);
+    option.dataset.rpcCount = String(chain.rpcCount);
+    chainInput.append(option);
+  }
+
+  if (selectedChain && chains.some((chain) => chain.name === selectedChain)) {
+    chainInput.value = selectedChain;
   }
 }
 
@@ -298,10 +304,8 @@ async function loadChainSummaries(): Promise<void> {
     }
 
     renderChainOptions(chains);
-    chainSummaryStatus.textContent = `${chains.length} registry chains`;
   } catch {
     renderChainOptions(FALLBACK_CHAINS);
-    chainSummaryStatus.textContent = 'Registry list unavailable';
   }
 }
 
@@ -461,6 +465,15 @@ async function runLookup(settings: AppSettings): Promise<void> {
   }
 
   renderEscrowResult(settings, escrowData.escrow_address, escrowRequest.source);
+  saveHistory({
+    chainName: settings.chainName,
+    channelId: settings.channelId,
+    portId: settings.portId,
+    escrowAddress: escrowData.escrow_address,
+    source: escrowRequest.source,
+    timestamp: Date.now(),
+  });
+  renderHistory();
 
   setStatus('Querying escrow balances', 'busy');
   const balances = await fetchAllBalances(options, escrowData.escrow_address, requests);
@@ -492,15 +505,6 @@ async function runLookup(settings: AppSettings): Promise<void> {
   }
 
   renderTrace(requests);
-  saveHistory({
-    chainName: settings.chainName,
-    channelId: settings.channelId,
-    portId: settings.portId,
-    escrowAddress: escrowData.escrow_address,
-    source: escrowRequest.source,
-    timestamp: Date.now(),
-  });
-  renderHistory();
   setStatus('Lookup complete', 'ok');
 }
 
@@ -536,19 +540,7 @@ resetButton.addEventListener('click', () => {
 });
 
 endpointModeInput.addEventListener('change', updateEndpointFields);
-chainInput.addEventListener('input', updateEndpointFields);
-
-document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((button) => {
-  button.addEventListener('click', () => {
-    const [chainName, channelId] = (button.dataset.preset || '').split(':');
-    if (!chainName || !channelId) return;
-    chainInput.value = chainName;
-    channelInput.value = channelId;
-    portInput.value = 'transfer';
-    updateEndpointFields();
-    setStatus(`Loaded ${chainName} ${channelId}`, 'idle');
-  });
-});
+chainInput.addEventListener('change', updateEndpointFields);
 
 applySettings(loadSettings());
 void loadChainSummaries();
