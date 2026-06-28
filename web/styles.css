@@ -163,9 +163,20 @@ h1 {
 
 .field-grid {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 0.8fr 0.9fr;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(180px, 0.7fr);
   gap: 12px;
   padding: 14px;
+}
+
+.secondary-grid {
+  grid-template-columns: minmax(180px, 0.5fr) minmax(140px, 0.35fr) minmax(0, 1fr);
+  padding-top: 0;
+}
+
+.direct-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-top: 0;
+  padding-bottom: 14px;
 }
 
 label {
@@ -282,7 +293,8 @@ select:focus {
 
 .kv-list,
 .trace-list,
-.balance-list {
+.balance-list,
+.comparison-list {
   display: grid;
   gap: 0;
   padding: 4px 14px 14px;
@@ -326,15 +338,59 @@ select:focus {
   border-bottom: 1px solid rgba(104, 135, 101, 0.22);
 }
 
+.comparison-row {
+  display: grid;
+  grid-template-columns:
+    minmax(120px, 0.18fr) minmax(180px, 0.32fr) minmax(120px, 0.18fr)
+    minmax(120px, 0.18fr);
+  gap: 14px;
+  align-items: start;
+  min-height: 42px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(104, 135, 101, 0.22);
+}
+
+.comparison-head {
+  min-height: 28px;
+  color: var(--muted);
+  font: 700 0.72rem / 1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+}
+
 .balance-amount {
   color: var(--green);
   font: 0.92rem / 1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
   overflow-wrap: anywhere;
 }
 
+.comparison-amount,
+.comparison-ok {
+  color: var(--green);
+  font: 0.88rem / 1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
 .balance-denom {
   color: var(--text);
   font: 0.88rem / 1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
+.comparison-denom {
+  color: var(--text);
+  font: 0.82rem / 1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
+.comparison-delta {
+  color: var(--amber);
+  font: 0.88rem / 1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
+.comparison-error {
+  color: var(--red);
+  font: 0.8rem / 1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
   overflow-wrap: anywhere;
 }
 
@@ -365,6 +421,11 @@ select:focus {
   .field-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .secondary-grid,
+  .direct-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 620px) {
@@ -392,7 +453,8 @@ select:focus {
 
   .kv-row,
   .trace-row,
-  .balance-row {
+  .balance-row,
+  .comparison-row {
     grid-template-columns: 1fr;
     gap: 5px;
     padding: 10px 0;
