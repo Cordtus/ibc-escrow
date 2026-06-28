@@ -18,6 +18,7 @@ import {
   type EndpointMode,
   extractClientId,
   extractConnectionId,
+  getChainMetadataFeedback,
   getNextBalancePageKey,
   type IbcLinksResponse,
   type LookupUrlOptions,
@@ -28,6 +29,7 @@ import {
   normalizeSupplyAmount,
   type ResolvedLookupRoute,
   resolveLookupRoute,
+  type StatusState,
   type SupplyResponse,
 } from './lookup.js';
 
@@ -71,6 +73,9 @@ const HISTORY_KEY = 'ibc-escrow-web-history';
 const HOSTED_LAZY_LB_BASE_URL = 'https://ibc-escrow.cac-group.io';
 const MAX_SUPPLY_COMPARISONS = 25;
 let chainSummaries: ChainSummary[] = [];
+let lookupBusy = false;
+let chainControlsDisabled = true;
+let lookupDisabledForChains = true;
 const FALLBACK_CHAINS: ChainSummary[] = [
   {
     name: 'cosmoshub',
@@ -140,6 +145,7 @@ const lazyLbInput = byId<HTMLInputElement>('lazy-lb-base-url');
 const directRestField = byId<HTMLElement>('direct-rest-field');
 const sourceDirectRestInput = byId<HTMLInputElement>('source-direct-rest-base-url');
 const destinationDirectRestInput = byId<HTMLInputElement>('destination-direct-rest-base-url');
+const chainListNote = byId<HTMLElement>('chain-list-note');
 const includeDetailsInput = byId<HTMLInputElement>('include-details');
 const submitButton = byId<HTMLButtonElement>('lookup-button');
 const resetButton = byId<HTMLButtonElement>('reset-button');
@@ -216,15 +222,34 @@ function applySettings(settings: AppSettings): void {
   updateEndpointFields();
 }
 
-function setStatus(message: string, state: 'idle' | 'busy' | 'ok' | 'error' = 'idle'): void {
+function setStatus(message: string, state: StatusState = 'idle'): void {
   statusText.textContent = message;
   statusDot.dataset.state = state;
 }
 
+function updateControlState(): void {
+  const chainsUnavailable = chainControlsDisabled || lookupDisabledForChains;
+  submitButton.disabled = lookupBusy || lookupDisabledForChains;
+  resetButton.disabled = lookupBusy;
+  sourceChainInput.disabled = lookupBusy || chainControlsDisabled;
+  destinationChainInput.disabled = lookupBusy || chainControlsDisabled;
+  form.toggleAttribute('aria-busy', lookupBusy || chainsUnavailable);
+}
+
 function setBusy(isBusy: boolean): void {
-  submitButton.disabled = isBusy;
-  resetButton.disabled = isBusy;
-  form.toggleAttribute('aria-busy', isBusy);
+  lookupBusy = isBusy;
+  updateControlState();
+}
+
+function setChainMetadataState(state: 'loading' | 'ready' | 'fallback'): void {
+  const feedback = getChainMetadataFeedback(state);
+  chainControlsDisabled = feedback.chainControlsDisabled;
+  lookupDisabledForChains = feedback.lookupDisabled;
+  chainListNote.textContent = feedback.note;
+  chainListNote.hidden = !feedback.note;
+  chainListNote.dataset.state = state;
+  setStatus(feedback.statusMessage, feedback.statusState);
+  updateControlState();
 }
 
 function buildLookupOptions(
@@ -341,6 +366,31 @@ function appendChainOption(select: HTMLSelectElement, chain: ChainSummary): void
   select.append(option);
 }
 
+function renderChainLoadingSelect(
+  select: HTMLSelectElement,
+  selectedValue: string,
+  placeholderText: string
+): void {
+  clearNode(select);
+  const option = document.createElement('option');
+  option.value = selectedValue;
+  option.textContent = placeholderText;
+  option.disabled = true;
+  select.append(option);
+  select.value = selectedValue;
+}
+
+function renderChainLoadingOptions(settings: AppSettings): void {
+  const feedback = getChainMetadataFeedback('loading');
+  renderChainLoadingSelect(sourceChainInput, settings.sourceChainName, feedback.placeholderText);
+  renderChainLoadingSelect(
+    destinationChainInput,
+    settings.destinationChainName,
+    feedback.placeholderText
+  );
+  updateEndpointFields();
+}
+
 function renderChainSelect(
   select: HTMLSelectElement,
   chains: ChainSummary[],
@@ -370,6 +420,7 @@ function renderChainOptions(chains: ChainSummary[]): void {
 }
 
 async function loadChainSummaries(): Promise<void> {
+  setChainMetadataState('loading');
   try {
     const data = await fetchJson(buildServiceUrl('/api/chains-summary'));
     const chains = normalizeChainSummaries(data);
@@ -379,9 +430,11 @@ async function loadChainSummaries(): Promise<void> {
 
     chainSummaries = chains;
     renderChainOptions(chains);
+    setChainMetadataState('ready');
   } catch {
     chainSummaries = FALLBACK_CHAINS;
     renderChainOptions(FALLBACK_CHAINS);
+    setChainMetadataState('fallback');
   }
 }
 
@@ -770,6 +823,11 @@ async function runLookup(settings: AppSettings): Promise<void> {
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (lookupDisabledForChains) {
+    setChainMetadataState('loading');
+    return;
+  }
+
   const settings = readSettings();
   saveSettings(settings);
   setBusy(true);
@@ -806,7 +864,8 @@ endpointModeInput.addEventListener('change', updateEndpointFields);
 sourceChainInput.addEventListener('change', updateEndpointFields);
 destinationChainInput.addEventListener('change', updateEndpointFields);
 
-applySettings(loadSettings());
+const initialSettings = loadSettings();
+renderChainLoadingOptions(initialSettings);
+applySettings(initialSettings);
 void loadChainSummaries();
 renderHistory();
-setStatus('Ready', 'idle');

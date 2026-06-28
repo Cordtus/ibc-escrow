@@ -209,6 +209,29 @@ select:focus {
   box-shadow: 0 0 0 2px rgba(120, 214, 111, 0.18);
 }
 
+input:disabled,
+select:disabled {
+  color: var(--muted);
+  border-color: rgba(104, 135, 101, 0.45);
+  background: rgba(9, 11, 8, 0.72);
+  cursor: wait;
+  opacity: 0.82;
+}
+
+.field-note {
+  margin: -4px 14px 14px;
+  color: var(--amber);
+  font: 0.78rem / 1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.field-note[data-state="loading"] {
+  color: var(--cyan);
+}
+
+.field-note[data-state="fallback"] {
+  color: var(--amber);
+}
+
 .wide-field {
   padding: 0 14px 14px;
 }
