@@ -42,6 +42,7 @@
                 spellcheck="false"
                 required
               />
+              <small id="chain-summary-status" class="field-note">Loading registry chains</small>
             </label>
             <label>
               <span>Channel</span>
@@ -69,6 +70,17 @@
           </div>
 
           <input id="lazy-lb-base-url" name="lazyLbBaseUrl" type="hidden" />
+
+          <label id="direct-rest-field" class="wide-field" hidden>
+            <span>Direct REST endpoint</span>
+            <input
+              id="direct-rest-base-url"
+              name="directRestBaseUrl"
+              type="url"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
 
           <div class="inline-options">
             <label class="check-row">

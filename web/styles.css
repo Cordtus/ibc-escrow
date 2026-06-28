@@ -180,6 +180,12 @@ label span {
   text-transform: uppercase;
 }
 
+.field-note {
+  color: var(--muted);
+  font: 0.7rem / 1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
 input,
 select {
   width: 100%;
